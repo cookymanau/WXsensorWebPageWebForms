@@ -32,36 +32,84 @@ namespace WXsensorWebPage
         double[] tRoverYesterday = new double[24] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         double[] tPool = new double[24] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         double[] tPoolYesterday = new double[24] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-
         int[] tHr = new int[24] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
+        struct CurrentReadings        { //this is to store current sensor reading for display on web page
+            public double cTEMPIn;
+            public double cTEMPOut;
+            public double cTEMPPool;
+            public double cTEMPRover;
+            public double cTEMPBom;        }
+        CurrentReadings cr = new CurrentReadings();
+        static double barMax = 0.0;
         string connectionString = @"Data Source=192.168.1.109\DAWES_SQL2008; Database = WeatherStation; User Id = WeatherStation; Password = Esp32a.b.;";
 
-        static string WXOUTconnString;
-        static string WXROVERconnString;
-        static string WXPOOLconnString;
-        static string WXINconnString;
+//        static string WXOUTconnString;
+//        static string WXROVERconnString;
+//        static string WXPOOLconnString;
+//        static string WXINconnString;
         static double tInAdjust, tOutAdjust, tRoverAdjust, tBOMadjust; //these are to calibrate the thermometers
 
+        static uint recCnt = 0;
 
+        static string now = DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
 
 
         public WXSensor2WebPage()
         {
             InitializeComponent();
  
+        }
+
+        private void btnExit_Click(object sender, EventArgs e)
+        {
+            Application.Exit();
 
         }
 
-        private void btnStart_Click(object sender, EventArgs e)
+
+        //Declaring timer - a FORMS timer
+        public System.Windows.Forms.Timer aTimer = new System.Windows.Forms.Timer();
+        void SetTimer()
         {
-            readSensorDataFromDatabase("WXIN", tIn, tInYesterday);
-            readSensorDataFromDatabase("WXOUT", tOut, tOutYesterday);
-            readSensorDataFromDatabase("WXROVER", tRover, tRoverYesterday);
-            readSensorDataFromDatabase("WXPOOL", tPool, tPoolYesterday);
-            readSensorDataFromDatabase("WXBOMGHILL", tBOM, tBOMYesterday);
-            writeToHTML();
-            MessageBox.Show("Done");
+            aTimer.Tick += OnTimedEvent;
+            aTimer.Interval = 30000; //miliseconds - fixed at once every minute for the basic tick
+            aTimer.Enabled = true;
+        }
+
+        void OnTimedEvent(Object sender, EventArgs e)
+        {
+            //creating a new static instance of our form so the next line does not yell at me
+            WXSensor2WebPage sd = new WXSensor2WebPage();
+
+            recCnt += 1;  //the first time through recCnt=1 (0 based)
+
+            lblRecCnt.Text = recCnt.ToString();
+            if (recCnt % 1 == 0)  //every tick this would be
+            {
+                //fill the today arrays
+                readSensorDataFromDatabase("WXIN", tIn, tInYesterday);
+                readSensorDataFromDatabase("WXOUT", tOut, tOutYesterday);
+                readSensorDataFromDatabase("WXROVER", tRover, tRoverYesterday);
+                readSensorDataFromDatabase("WXPOOL", tPool, tPoolYesterday);
+                readSensorDataFromDatabase("WXBOMGHILL", tBOM, tBOMYesterday);
+
+                //get the current sensor reading from the database
+                CurrentReadingFromDatabase("WXIN");
+                CurrentReadingFromDatabase("WXOUT");
+                CurrentReadingFromDatabase("WXROVER");
+                CurrentReadingFromDatabase("WXPOOL");
+                CurrentReadingFromDatabase("WXBOMGHILL");
+                writeToHTML();
+            }
+        }
+
+
+            private void btnStart_Click(object sender, EventArgs e)
+        {
+
+            lblStartTime.Text = now.ToString();
+            SetTimer(); //Start the loop
 
         }
 
@@ -74,6 +122,7 @@ namespace WXsensorWebPage
             DateTime rdngTime;
             DateTime  rightNow = DateTime.Now;
             int intDay, intHour;
+            
 
             conn = new SqlConnection(connectionString);  //connectionString is a global ATM
             SqlCommand getReadings = new SqlCommand($"select TIME, ROUND(AvgValue, 1) as AvgTemp from(select TIME = dateadd(hh, datepart(hh, TIME), cast(CAST(TIME as date) as datetime)), AvgValue = AVG(TEMP)from {table} group by dateadd(hh, datepart(hh, TIME), cast(CAST(TIME as date) as datetime)))a order by TIME DESC",conn);
@@ -82,6 +131,8 @@ namespace WXsensorWebPage
            //SqlCommand writeToTable = new SqlCommand($"insert into {table} (TIME,TEMP,HUMID,PRESS,COMMENT) values ('{now}',{temp},{humid},0,'{cmnt}');", conn);
             conn.Open();
             rdr = getReadings.ExecuteReader();
+           
+
             while (rdr.Read())
             {
                 // get the results of each column
@@ -91,19 +142,81 @@ namespace WXsensorWebPage
                 if (rightNow.Day == rdngTime.Day) {
                     intHour = (int)(rdngTime.Hour);
                     tArray[intHour] = rdngTemp;
+
+                    if (rdngTemp > barMax)
+                    {
+                        barMax = rdngTemp;
+                        Array.Clear(tHr, 0, 24);
+                        tHr[rightNow.Hour] = (int)barMax;
+                    }
+
+
+                }
+            }
+        }
+
+        private void CurrentReadingFromDatabase(string table)
+        {
+            SqlConnection conn;
+            SqlDataReader rdr = null;
+            double rdngTemp;
+            DateTime rdngTime;
+            DateTime rightNow = DateTime.Now;
+            int intDay, intHour;
+            //            CurrentReadings cr = new CurrentReadings();
+            
+            conn = new SqlConnection(connectionString);  //connectionString is a global ATM
+            SqlCommand getReadings = new SqlCommand($"select  top 1 TEMP from {table} order by TIME DESC", conn);
+
+            // SqlCommand getReadings = new SqlCommand($"select * from dbo.{table} where SENSOR='{sqlSensorName}'", conn);
+            //SqlCommand writeToTable = new SqlCommand($"insert into {table} (TIME,TEMP,HUMID,PRESS,COMMENT) values ('{now}',{temp},{humid},0,'{cmnt}');", conn);
+            conn.Open();
+            rdr = getReadings.ExecuteReader();
+            while (rdr.Read())
+            {
+                // get the results of each column
+//                rdngTime = (DateTime)rdr["TIME"];
+                rdngTemp = (double)rdr["TEMP"];
+
+                if (table == "WXIN")
+                {
+                    cr.cTEMPIn = rdngTemp;    
+                }
+                else if (table == "WXOUT")
+                {
+                    cr.cTEMPOut = rdngTemp;
+                }
+                else if (table == "WXROVER")
+                {
+                    cr.cTEMPRover = rdngTemp;
+                }
+                else if (table == "WXPOOL")
+                {
+                    cr.cTEMPPool = rdngTemp;
+                }
+                else if (table == "WXBOMGHILL")
+                {
+                    cr.cTEMPBom = rdngTemp;
                 }
 
-            }
-            // writeToTable.ExecuteNonQuery();
 
-        
+            }
         }
+
+
+
+
+
+
+
+
+
 
         void writeToHTML()
         {
 
             // var pathWithEnv = @"%USERPROFILE%\AppData\Local\MyProg\settings.file";
-            var pathWithEnv = @"c:\inetpub\wwwroot\index.html";
+            var pathWithEnv = @"c:\inetpub\wwwroot\t.html";
             var filePath = Environment.ExpandEnvironmentVariables(pathWithEnv);
 
             using (StreamWriter sw = new StreamWriter(filePath, append: false))  //using controls low-level resource useage
@@ -165,24 +278,16 @@ namespace WXsensorWebPage
 
                 sw.WriteLine("</center>");
 
-                //sw.WriteLine(@"<iframe src = ""http://free.timeanddate.com/clock/i70ggdyp/n196/fs48/ftb/tt0/tw0/tm1/ts1/tb4"" frameborder = ""0"" width = ""296"" height = ""112"" ></iframe> ");
-
-
-                //sw.WriteLine(@"<iframe src = ""http://free.timeanddate.com/clock/i70nx3r7/n196/szw110/szh110/hoc09f/hbw0/hfc0f9/cf100/hnc09f/fiv0/fas30/fdi66/mqc000/mql15/mqw4/mqd98/mhc000/mhl15/mhw4/mhd98/mmv0/hhs2/hms2/hsv0"" frameborder = ""0"" width = ""110"" height = ""110"" ></iframe > ");
-
-                sw.WriteLine(@"<iframe src = ""http://free.timeanddate.com/clock/i70o7n5a/n196/tlau/fn3/fs28/tct/pct/ftb/th2"" frameborder = ""0"" width = ""157"" height = ""34"" allowTransparency = ""true"" ></iframe>");
-
-
-
+                 sw.WriteLine(@"<iframe src = ""http://free.timeanddate.com/clock/i70o7n5a/n196/tlau/fn3/fs28/tct/pct/ftb/th2"" frameborder = ""0"" width = ""157"" height = ""34"" allowTransparency = ""true"" ></iframe>");
 
 
                 sw.WriteLine(@"<span style=""font-family:Arial;font-size:45px;>""");
-//                sw.WriteLine($" &nbsp; </span>In <span style=font-size:65px;>{strInsideTemp1}</span><span style=font-size:40px;><sup>o</sup>C &nbsp;</span> <span style=font-size:45px;>Out </span> <span style=font-size:65px;>{strOutTemp1}<span style=font-size:40px;><sup>o</sup>C </span></font></center>&nbsp;");
+                sw.WriteLine($" &nbsp; </span>In <span style=font-size:65px;>{cr.cTEMPIn}</span><span style=font-size:40px;><sup>o</sup>C &nbsp;</span> <span style=font-size:45px;>Out </span> <span style=font-size:65px;>{cr.cTEMPOut}<span style=font-size:40px;><sup>o</sup>C </span></font></center>&nbsp;");
                 sw.WriteLine(@"</span>");
                 //sw.WriteLine($"<input type=button  style=float: right; class=button_white onclick=location.href = '';  target=_blank value=\"OutMin: {dailyMin} OutMax: {dailyMax} InMin: {dailyInMin} InMax: {dailyInMax} \" />");
-                //sw.WriteLine(@"<input type=""button"" style=""float: right;""  onclick=""location.href = 'http://www.bom.gov.au/wa/forecasts/perth.shtml'; "" target=""_blank"" value=""Perth Forecast"" />");
-                //sw.WriteLine(@"<input type=""button"" style=""float: right;"" onclick=""location.href = 'http://www.bom.gov.au/products/IDR703.loop.shtml'; "" target=""_blank""  value=""BOM Radar""  />");
-                //sw.WriteLine(@"<input type=""button"" style=""float: right;""  onclick=""location.href = 'https://www.windy.com/-Satellite-satellite?satellite,-31.875,115.778,6'; "" target=""_blank""  value=""Windy""  />");
+                sw.WriteLine(@"<input type=""button"" style=""float: right;""  onclick=""location.href = 'http://www.bom.gov.au/wa/forecasts/perth.shtml'; "" target=""_blank"" value=""Perth Forecast"" />");
+                sw.WriteLine(@"<input type=""button"" style=""float: right;"" onclick=""location.href = 'http://www.bom.gov.au/products/IDR703.loop.shtml'; "" target=""_blank""  value=""BOM Radar""  />");
+                sw.WriteLine(@"<input type=""button"" style=""float: right;""  onclick=""location.href = 'https://www.windy.com/-Satellite-satellite?satellite,-31.875,115.778,6'; "" target=""_blank""  value=""Windy""  />");
 
                 // sw.WriteLine("<div class=\"row\">");
                 // sw.WriteLine("<div class=\"column\" style=\"background - color:#aaa;\">");
