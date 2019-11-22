@@ -89,17 +89,27 @@ namespace WXsensorWebPage
             {
                 //fill the today arrays
                 readSensorDataFromDatabase("WXIN", tIn, tInYesterday);
+                System.Threading.Thread.Sleep(1000);
                 readSensorDataFromDatabase("WXOUT", tOut, tOutYesterday);
+                System.Threading.Thread.Sleep(1000);
                 readSensorDataFromDatabase("WXROVER", tRover, tRoverYesterday);
+                System.Threading.Thread.Sleep(1000);
                 readSensorDataFromDatabase("WXPOOL", tPool, tPoolYesterday);
+                System.Threading.Thread.Sleep(1000);
                 readSensorDataFromDatabase("WXBOMGHILL", tBOM, tBOMYesterday);
+                System.Threading.Thread.Sleep(1000);
 
                 //get the current sensor reading from the database
                 CurrentReadingFromDatabase("WXIN");
+                System.Threading.Thread.Sleep(1000);
                 CurrentReadingFromDatabase("WXOUT");
+                System.Threading.Thread.Sleep(1000);
                 CurrentReadingFromDatabase("WXROVER");
+                System.Threading.Thread.Sleep(1000);
                 CurrentReadingFromDatabase("WXPOOL");
+                System.Threading.Thread.Sleep(1000);
                 CurrentReadingFromDatabase("WXBOMGHILL");
+                System.Threading.Thread.Sleep(1000);
                 writeToHTML();
             }
         }
@@ -113,7 +123,12 @@ namespace WXsensorWebPage
 
         }
 
-
+        /// <summary>
+        /// Reads the sensor data from database and fills the arrays that hold the average reading for the hour.
+        /// </summary>
+        /// <param name="table">The table in the SQL database to read from</param>
+        /// <param name="tArray">The t array for the current 24 hours (midnight to midnight</param>
+        /// <param name="tArrayYesterday">The t array yesterday.</param>
         private void readSensorDataFromDatabase(string table, double[] tArray, double[] tArrayYesterday )
         {
             SqlConnection conn;
@@ -131,7 +146,7 @@ namespace WXsensorWebPage
            //SqlCommand writeToTable = new SqlCommand($"insert into {table} (TIME,TEMP,HUMID,PRESS,COMMENT) values ('{now}',{temp},{humid},0,'{cmnt}');", conn);
             conn.Open();
             rdr = getReadings.ExecuteReader();
-           
+            lblNowTime.Text = rightNow.TimeOfDay.ToString();
 
             while (rdr.Read())
             {
@@ -139,22 +154,36 @@ namespace WXsensorWebPage
                 rdngTime = (DateTime)rdr["TIME"];
                 rdngTemp = (double)rdr["AvgTemp"];
 
-                if (rightNow.Day == rdngTime.Day) {
+                if (rightNow.Day == rdngTime.Day)
+                {
                     intHour = (int)(rdngTime.Hour);
-                    tArray[intHour] = rdngTemp;
+                    tArray[intHour] = rdngTemp;    //get todays readings of temperature
 
-                    if (rdngTemp > barMax)
+
+                }
+                else if (rightNow.Day - 1 == rdngTime.Day) {
+                    intHour = (int)(rdngTime.Hour);
+                    tArrayYesterday[intHour] = rdngTemp; //yesterdays reading of temp into the array
+                }
+
+
+                    // this is the attempt to fill the tHr array for the vertical bar
+                    if (rdngTemp > barMax && rightNow.Day == rdngTime.Day)
                     {
                         barMax = rdngTemp;
-                        Array.Clear(tHr, 0, 24);
+                        Array.Clear(tHr, 0, 24);  //empty the array for the new hour???
                         tHr[rightNow.Hour] = (int)barMax;
                     }
 
 
-                }
+                //}
             }
+            conn.Close();
         }
-
+        /// <summary>
+        /// This gets the very latest readings from the database for display on the web page.
+        /// </summary>
+        /// <param name="table">The table.</param>
         private void CurrentReadingFromDatabase(string table)
         {
             SqlConnection conn;
@@ -399,21 +428,40 @@ namespace WXsensorWebPage
                 sw.WriteLine(@"labels: [""9am"",""10am"",""11am"",""Noon"",""1pm"",""2pm"",""3pm"",""4pm"",""5pm"",""6pm"",""7pm"",""8pm"",""9pm"",""10pm"",""11pm"",""Midnight"",""1am"",""2am"",""3am"",""4am"",""5am"",""6am"",""7am"",""8am""],");
                 sw.WriteLine("datasets: [{");
 
-                sw.WriteLine("label: \"Outside\",");
+                sw.WriteLine("label: \"Out\",");
                 sw.WriteLine("backgroundColor: [\"red\"],");
                 sw.WriteLine($"data: [ {tOut[9]}, {tOut[10]}, {tOut[11]}, {tOut[12]}, {tOut[13]}, {tOut[14]}, {tOut[15]}, {tOut[16]}, {tOut[17]}, {tOut[18]}, {tOut[19]}, {tOut[20]}, {tOut[21]}, {tOut[22]}, {tOut[23]}, {tOut[0]}, {tOut[1]}, {tOut[2]}, {tOut[3]}, {tOut[4]}, {tOut[5]}, {tOut[6]}, {tOut[7]},{tOut[8]}  ],");
                 sw.WriteLine(@"borderColor: ""#FF3355"",");
                 sw.WriteLine("fill:false,");
                 sw.WriteLine("type: 'line' ");
 
+                sw.WriteLine("},{");
+                sw.WriteLine("label: \"OutYesterday\",");
+                sw.WriteLine("type: \"line\",");
+                sw.WriteLine("backgroundColor: [\"rgba(247,70,74,0.2)\"],");
+                sw.WriteLine($"data: [ {tOutYesterday[9]}, {tOutYesterday[10]}, {tOutYesterday[11]}, {tOutYesterday[12]}, {tOutYesterday[13]}, {tOutYesterday[14]}, {tOutYesterday[15]}, {tOutYesterday[16]}, {tOutYesterday[17]}, {tOutYesterday[18]}, {tOutYesterday[19]}, {tOutYesterday[20]}, {tOutYesterday[21]}, {tOutYesterday[22]}, {tOutYesterday[23]}, {tOutYesterday[0]}, {tOutYesterday[1]}, {tOutYesterday[2]}, {tOutYesterday[3]}, {tOutYesterday[4]}, {tOutYesterday[5]}, {tOutYesterday[6]}, {tOutYesterday[7]},{tOutYesterday[8]}],");
+                sw.WriteLine("borderDash: [10,4],");
+                sw.WriteLine("borderColor: \"rgba(247,70,74,0.6)\",");
+                sw.WriteLine("fill: false");
 
                 sw.WriteLine("},{");
-                sw.WriteLine("label: \"Inside\",");
+                sw.WriteLine("label: \"In\",");
                 sw.WriteLine("type: \"line\",");
                 sw.WriteLine("backgroundColor: [\"blue\"],");
                 sw.WriteLine($"data: [ {tIn[9]}, {tIn[10]}, {tIn[11]}, {tIn[12]}, {tIn[13]}, {tIn[14]}, {tIn[15]}, {tIn[16]}, {tIn[17]}, {tIn[18]}, {tIn[19]}, {tIn[20]}, {tIn[21]}, {tIn[22]}, {tIn[23]}, {tIn[0]}, {tIn[1]}, {tIn[2]}, {tIn[3]}, {tIn[4]}, {tIn[5]}, {tIn[6]}, {tIn[7]},{tIn[8]}],");
                 sw.WriteLine("borderColor: \"#3339FF\",");
                 sw.WriteLine("fill: false");
+
+
+                sw.WriteLine("},{");
+                sw.WriteLine("label: \"InYesterday\",");
+                sw.WriteLine("type: \"line\",");
+                sw.WriteLine("backgroundColor: [\"rgba(151,187,205,0.2)\"],");
+                sw.WriteLine($"data: [ {tInYesterday[9]}, {tInYesterday[10]}, {tInYesterday[11]}, {tInYesterday[12]}, {tInYesterday[13]}, {tInYesterday[14]}, {tInYesterday[15]}, {tInYesterday[16]}, {tInYesterday[17]}, {tInYesterday[18]}, {tInYesterday[19]}, {tInYesterday[20]}, {tInYesterday[21]}, {tInYesterday[22]}, {tInYesterday[23]}, {tInYesterday[0]}, {tInYesterday[1]}, {tInYesterday[2]}, {tInYesterday[3]}, {tInYesterday[4]}, {tInYesterday[5]}, {tInYesterday[6]}, {tInYesterday[7]},{tInYesterday[8]}],");
+                sw.WriteLine("borderDash: [10,4],");
+                sw.WriteLine("borderColor: \"rgba(151,187,205,0.6)\",");
+                sw.WriteLine("fill: false");
+
 
 
                 sw.WriteLine("},{");
@@ -423,6 +471,9 @@ namespace WXsensorWebPage
                 sw.WriteLine($"data: [{tBOM[9]}, {tBOM[10]}, {tBOM[11]}, {tBOM[12]}, {tBOM[13]}, {tBOM[14]}, {tBOM[15]}, {tBOM[16]}, {tBOM[17]}, {tBOM[18]}, {tBOM[19]}, {tBOM[20]}, {tBOM[21]}, {tBOM[22]}, {tBOM[23]}, {tBOM[0]}, {tBOM[1]}, {tBOM[2]}, {tBOM[3]}, {tBOM[4]}, {tBOM[5]}, {tBOM[6]}, {tBOM[7]},{tBOM[8]}],");
                 sw.WriteLine("borderColor: \"#42FF33\",");
                 sw.WriteLine("fill: false");
+
+
+
 
                 sw.WriteLine("},{");
                 sw.WriteLine("label: \"ROVER\",");

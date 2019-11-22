@@ -34,6 +34,9 @@
             this.label3 = new System.Windows.Forms.Label();
             this.btnExit = new System.Windows.Forms.Button();
             this.lblRecCnt = new System.Windows.Forms.Label();
+            this.label2 = new System.Windows.Forms.Label();
+            this.label4 = new System.Windows.Forms.Label();
+            this.lblNowTime = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // label1
@@ -75,7 +78,7 @@
             // 
             // btnExit
             // 
-            this.btnExit.Location = new System.Drawing.Point(51, 153);
+            this.btnExit.Location = new System.Drawing.Point(51, 194);
             this.btnExit.Name = "btnExit";
             this.btnExit.Size = new System.Drawing.Size(75, 23);
             this.btnExit.TabIndex = 4;
@@ -86,17 +89,47 @@
             // lblRecCnt
             // 
             this.lblRecCnt.AutoSize = true;
-            this.lblRecCnt.Location = new System.Drawing.Point(208, 157);
+            this.lblRecCnt.Location = new System.Drawing.Point(187, 143);
             this.lblRecCnt.Name = "lblRecCnt";
             this.lblRecCnt.Size = new System.Drawing.Size(38, 13);
             this.lblRecCnt.TabIndex = 5;
             this.lblRecCnt.Text = "recCnt";
+            // 
+            // label2
+            // 
+            this.label2.AutoSize = true;
+            this.label2.Location = new System.Drawing.Point(57, 146);
+            this.label2.Name = "label2";
+            this.label2.Size = new System.Drawing.Size(82, 13);
+            this.label2.TabIndex = 6;
+            this.label2.Text = "Update Number";
+            // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.Location = new System.Drawing.Point(60, 170);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(29, 13);
+            this.label4.TabIndex = 7;
+            this.label4.Text = "Now";
+            // 
+            // lblNowTime
+            // 
+            this.lblNowTime.AutoSize = true;
+            this.lblNowTime.Location = new System.Drawing.Point(188, 170);
+            this.lblNowTime.Name = "lblNowTime";
+            this.lblNowTime.Size = new System.Drawing.Size(52, 13);
+            this.lblNowTime.TabIndex = 8;
+            this.lblNowTime.Text = "NowTime";
             // 
             // WXSensor2WebPage
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(338, 223);
+            this.Controls.Add(this.lblNowTime);
+            this.Controls.Add(this.label4);
+            this.Controls.Add(this.label2);
             this.Controls.Add(this.lblRecCnt);
             this.Controls.Add(this.btnExit);
             this.Controls.Add(this.label3);
@@ -118,6 +151,9 @@
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.Button btnExit;
         private System.Windows.Forms.Label lblRecCnt;
+        private System.Windows.Forms.Label label2;
+        private System.Windows.Forms.Label label4;
+        private System.Windows.Forms.Label lblNowTime;
     }
 }
 
