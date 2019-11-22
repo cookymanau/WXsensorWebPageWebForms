@@ -41,6 +41,8 @@ namespace WXsensorWebPage
             public double cTEMPPool;
             public double cTEMPRover;
             public double cTEMPBom;
+            public double cHumidOut;
+            public double cPressureOut;
         }
         CurrentReadings cr = new CurrentReadings();
 
@@ -50,13 +52,14 @@ namespace WXsensorWebPage
             public double BestMin;
             public double BcurrentTemp;
             public double BcurrentHumid;
+            public double BcurrentPress;
             public double BWindSpeed;
             public string BWindDir;
             public double Brainfall;
         }
         BOMReadings br = new BOMReadings();
-
-
+        
+        
 
 
 
@@ -77,7 +80,7 @@ namespace WXsensorWebPage
         public WXSensor2WebPage()
         {
             InitializeComponent();
- 
+            br.BcurrentPress = 999.9; //just in case
         }
 
         private void btnExit_Click(object sender, EventArgs e)
@@ -132,6 +135,11 @@ namespace WXsensorWebPage
                 BOMReadingFromDatabase("WXBOMGHILL");
                 writeToHTML();
             }
+            if (recCnt % 60 == 0 || recCnt == 2)  //every hour and just after startup
+            {
+                webPOSTtoScarpWeather(  cr.cTEMPIn, cr.cHumidOut, cr.cPressureOut, cr.cTEMPOut);  //send it to Scarpweather
+            }
+
         }
 
 
@@ -190,9 +198,9 @@ namespace WXsensorWebPage
                     if (rdngTemp > barMax && rightNow.Day == rdngTime.Day)
                     {
                         barMax = rdngTemp;
+                    }
                         Array.Clear(tHr, 0, 24);  //empty the array for the new hour???
                         tHr[rightNow.Hour] = (int)barMax;
-                    }
 
 
                 //}
@@ -211,42 +219,41 @@ namespace WXsensorWebPage
             DateTime rdngTime;
             DateTime rightNow = DateTime.Now;
             int intDay, intHour;
-            //            CurrentReadings cr = new CurrentReadings();
 
-
-
-            //Array.Clear(tHr, 0, 24);
             conn = new SqlConnection(connectionString);  //connectionString is a global ATM
-            SqlCommand getReadings = new SqlCommand($"select  top 1 TEMP from {table} order by TIME DESC", conn);
+            SqlCommand getReadings = new SqlCommand($"select  top 1 TEMP,HUMID,PRESS from {table} order by TIME DESC", conn);
             conn.Open();
             rdr = getReadings.ExecuteReader();
             while (rdr.Read())
             {
                 // get the results of each column
 //                rdngTime = (DateTime)rdr["TIME"];
-                rdngTemp = (double)rdr["TEMP"];
+                //rdngTemp = (double)rdr["TEMP"];
 
                 if (table == "WXIN")
                 {
-                    cr.cTEMPIn = rdngTemp;    
+                    cr.cTEMPIn = (double)rdr["TEMP"];    
                 }
                 else if (table == "WXOUT")
                 {
-                    cr.cTEMPOut = rdngTemp;
+                    cr.cTEMPOut = (double)rdr["TEMP"];
+                    cr.cHumidOut = (double)rdr["HUMID"];
+                    cr.cPressureOut = br.BcurrentPress;  //this is because we dont have a working pressure sensor
                 }
                 else if (table == "WXROVER")
                 {
-                    cr.cTEMPRover = rdngTemp;
+                    cr.cTEMPRover = (double)rdr["TEMP"];
                 }
                 else if (table == "WXPOOL")
                 {
-                    cr.cTEMPPool = rdngTemp;
+                    cr.cTEMPPool = (double)rdr["TEMP"];
                 }
                 else if (table == "WXBOMGHILL")
                 {
-                    cr.cTEMPBom = rdngTemp;
+                    cr.cTEMPBom = (double)rdr["TEMP"];
                 }
             }
+            conn.Close();
         }
 
 
@@ -268,7 +275,7 @@ namespace WXsensorWebPage
             //            CurrentReadings cr = new CurrentReadings();
 
             conn = new SqlConnection(connectionString);  //connectionString is a global ATM
-            SqlCommand getReadings = new SqlCommand($"select  top 1 TEMP,HUMID,PRESSURE,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from {table} order by TIME DESC", conn);
+            SqlCommand getReadings = new SqlCommand($"select  top 1 TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from {table} order by TIME DESC", conn);
             conn.Open();
             rdr = getReadings.ExecuteReader();
             while (rdr.Read())
@@ -277,6 +284,7 @@ namespace WXsensorWebPage
                 //                rdngTime = (DateTime)rdr["TIME"];
                 br.BcurrentTemp = (double)rdr["TEMP"];
                 br.BcurrentHumid = (double)rdr["HUMID"];
+                br.BcurrentPress = (double)rdr["PRESS"];
                 br.BestMax = (double)rdr["ESTBOMMAX"];
                 br.BestMin = (double)rdr["ESTBOMMIN"];
                 br.BWindSpeed = (double)rdr["WINDSPEED"];
@@ -284,9 +292,59 @@ namespace WXsensorWebPage
                 br.Brainfall = (double)rdr["RAINFALL"];
 
             }
+            conn.Close();
         }
 
 
+        /// <summary>
+        /// Posts the data to TWITTER scarp weather.
+        /// </summary>
+        /// <param name="temp">The temporary.</param>
+        /// <param name="humid">The humid.</param>
+        /// <param name="press">The press.</param>
+        private void webPOSTtoScarpWeather(double temp, double humid, double press, double strOutTemp1)
+        {
+            double outTemp = strOutTemp1;
+            //thiis is straight from MS example code - more or less.
+
+            string URL = "https://maker.ifttt.com/trigger/scarpweather_Data_Push/with/key/bvtUzCTPgTSrphRutbFIBh/";
+            //string postData = "{ value1 : T:23f, value2 : H: 74s, value3 : P: 995s }";
+            //string postData = "value1=T:23f&value2=H:74s&value3=P:995s";
+
+            string postData = "value1=\nTemp In:" + temp + " Temp Out:" + outTemp + "&value2=\nHumidity:" + humid + "&value3=\nPressure:" + press + ".";
+            //writeToLog("Twitter Post Data " + postData);
+
+            byte[] byteArray = Encoding.UTF8.GetBytes(postData);
+            WebRequest request = WebRequest.Create(URL);
+            request.Method = "POST";
+
+            // Set the ContentType property of the WebRequest.  
+            request.ContentType = "application/x-www-form-urlencoded";
+            // Set the ContentLength property of the WebRequest.  
+            request.ContentLength = byteArray.Length;
+            // Get the request stream.  
+            Stream dataStream = request.GetRequestStream();
+            // Write the data to the request stream.  
+            dataStream.Write(byteArray, 0, byteArray.Length);
+            // Close the Stream object.  
+            dataStream.Close();
+            // Get the response.  
+            WebResponse response = request.GetResponse();
+            // Display the status.  
+            // Console.WriteLine(((HttpWebResponse)response).StatusDescription);
+            // Get the stream containing content returned by the server.  
+            dataStream = response.GetResponseStream();
+            // Open the stream using a StreamReader for easy access.  
+            StreamReader reader = new StreamReader(dataStream);
+            // Read the content.  
+            string responseFromServer = reader.ReadToEnd();
+            // Display the content.  
+            //Console.WriteLine(responseFromServer);
+            // Clean up the streams.  
+            reader.Close();
+            dataStream.Close();
+            response.Close();
+        }
 
 
 
@@ -297,7 +355,7 @@ namespace WXsensorWebPage
         {
 
             // var pathWithEnv = @"%USERPROFILE%\AppData\Local\MyProg\settings.file";
-            var pathWithEnv = @"c:\inetpub\wwwroot\t.html";
+            var pathWithEnv = @"c:\inetpub\wwwroot\index.html";
             var filePath = Environment.ExpandEnvironmentVariables(pathWithEnv);
 
             using (StreamWriter sw = new StreamWriter(filePath, append: false))  //using controls low-level resource useage
@@ -378,7 +436,8 @@ namespace WXsensorWebPage
                 sw.WriteLine($"<table class=t1><tr>");
                 sw.WriteLine($"<td class=button_green>estMax: {br.BestMax} </td><td class=button_white>&nbsp</td>");
                 sw.WriteLine($"<td class=button_green>estMin: {br.BestMin}</td><td class=button_white></td>");
-                sw.WriteLine($"<td class=button_green>Current Temp: {br.BcurrentTemp}</td><td class=button_white></td>");
+                sw.WriteLine($"<td class=button_green>Temp: {br.BcurrentTemp}</td><td class=button_white></td>");
+                sw.WriteLine($"<td class=button_green>Press: {br.BcurrentPress}</td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_green>Wind km/h {br.BWindSpeed}</td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_green> Direction {br.BWindDir} </td><td class=button_white></td>");
                // sw.WriteLine("</tr></table>");
@@ -481,35 +540,56 @@ namespace WXsensorWebPage
                 sw.WriteLine(@"labels: [""Midnight"",""1am"",""2am"",""3am"",""4am"",""5am"",""6am"",""7am"",""8am"",""9am"",""10am"",""11am"",""MidDay"",""1pm"",""2pm"",""3pm"",""4pm"",""5pm"",""6pm"",""7pm"",""8pm"",""9pm"",""10pm"",""11pm""],");
                 sw.WriteLine("datasets: [{");
 
+
+                //OUT
                 sw.WriteLine("label: \"Out\",");
                 sw.WriteLine("backgroundColor: [\"red\"],");
-                //sw.WriteLine($"data: [ {tOut[9]}, {tOut[10]}, {tOut[11]}, {tOut[12]}, {tOut[13]}, {tOut[14]}, {tOut[15]}, {tOut[16]}, {tOut[17]}, {tOut[18]}, {tOut[19]}, {tOut[20]}, {tOut[21]}, {tOut[22]}, {tOut[23]}, {tOut[0]}, {tOut[1]}, {tOut[2]}, {tOut[3]}, {tOut[4]}, {tOut[5]}, {tOut[6]}, {tOut[7]},{tOut[8]}  ],");
-                sw.WriteLine($"data: [ {tOut[0]}, {tOut[1]}, {tOut[2]}, {tOut[3]}, {tOut[4]}, {tOut[5]}, {tOut[6]}, {tOut[7]}, {tOut[8]}, {tOut[9]}, {tOut[10]}, {tOut[11]}, {tOut[12]}, {tOut[13]}, {tOut[14]}, {tOut[15]}, {tOut[16]}, {tOut[17]}, {tOut[18]}, {tOut[19]}, {tOut[20]}, {tOut[21]}, {tOut[22]},{tOut[23]}  ],");
+                sw.Write($"data:[");
+                for (int i = 0; i < 24; i++)
+                {
+                    if (tOut[i] > 0)
+                    {
+                        sw.Write($"{tOut[i]},");
+                    }
+                }
+                    sw.WriteLine( " ],");
                 sw.WriteLine(@"borderColor: ""#FF3355"",");
+                sw.WriteLine("pointRadius: 2,");
                 sw.WriteLine("fill:false,");
                 sw.WriteLine("type: 'line' ");
-
+                //OutYesterday
                 sw.WriteLine("},{");
                 sw.WriteLine("label: \"OutYesterday\",");
                 sw.WriteLine("type: \"line\",");
                 sw.WriteLine("backgroundColor: [\"rgba(247,70,74,0.2)\"],");
-//                sw.WriteLine($"data: [ {tOutYesterday[9]}, {tOutYesterday[10]}, {tOutYesterday[11]}, {tOutYesterday[12]}, {tOutYesterday[13]}, {tOutYesterday[14]}, {tOutYesterday[15]}, {tOutYesterday[16]}, {tOutYesterday[17]}, {tOutYesterday[18]}, {tOutYesterday[19]}, {tOutYesterday[20]}, {tOutYesterday[21]}, {tOutYesterday[22]}, {tOutYesterday[23]}, {tOutYesterday[0]}, {tOutYesterday[1]}, {tOutYesterday[2]}, {tOutYesterday[3]}, {tOutYesterday[4]}, {tOutYesterday[5]}, {tOutYesterday[6]}, {tOutYesterday[7]},{tOutYesterday[8]}],");
                 sw.WriteLine($"data: [ {tOutYesterday[0]}, {tOutYesterday[1]}, {tOutYesterday[2]}, {tOutYesterday[3]}, {tOutYesterday[4]}, {tOutYesterday[5]}, {tOutYesterday[6]}, {tOutYesterday[7]}, {tOutYesterday[8]}, {tOutYesterday[9]}, {tOutYesterday[10]}, {tOutYesterday[11]}, {tOutYesterday[12]}, {tOutYesterday[13]}, {tOutYesterday[14]}, {tOutYesterday[15]}, {tOutYesterday[16]}, {tOutYesterday[17]}, {tOutYesterday[18]}, {tOutYesterday[19]}, {tOutYesterday[20]}, {tOutYesterday[21]}, {tOutYesterday[22]},{tOutYesterday[23]}  ],");
-
                 sw.WriteLine("borderDash: [10,4],");
                 sw.WriteLine("borderColor: \"rgba(247,70,74,0.4)\",");
+                sw.WriteLine("pointRadius: 2,");
                 sw.WriteLine("fill: false");
 
+                //IN
                 sw.WriteLine("},{");
                 sw.WriteLine("label: \"In\",");
                 sw.WriteLine("type: \"line\",");
                 sw.WriteLine("backgroundColor: [\"blue\"],");
-//              sw.WriteLine($"data: [ {tIn[9]}, {tIn[10]}, {tIn[11]}, {tIn[12]}, {tIn[13]}, {tIn[14]}, {tIn[15]}, {tIn[16]}, {tIn[17]}, {tIn[18]}, {tIn[19]}, {tIn[20]}, {tIn[21]}, {tIn[22]}, {tIn[23]}, {tIn[0]}, {tIn[1]}, {tIn[2]}, {tIn[3]}, {tIn[4]}, {tIn[5]}, {tIn[6]}, {tIn[7]},{tIn[8]}],");
-                sw.WriteLine($"data: [ {tIn[0]}, {tIn[1]}, {tIn[2]}, {tIn[3]}, {tIn[4]}, {tIn[5]}, {tIn[6]}, {tIn[7]}, {tIn[8]}, {tIn[9]}, {tIn[10]}, {tIn[11]}, {tIn[12]}, {tIn[13]}, {tIn[14]}, {tIn[15]}, {tIn[16]}, {tIn[17]}, {tIn[18]}, {tIn[19]}, {tIn[20]}, {tIn[21]}, {tIn[22]},{tIn[23]}  ],");
+                //              sw.WriteLine($"data: [ {tIn[9]}, {tIn[10]}, {tIn[11]}, {tIn[12]}, {tIn[13]}, {tIn[14]}, {tIn[15]}, {tIn[16]}, {tIn[17]}, {tIn[18]}, {tIn[19]}, {tIn[20]}, {tIn[21]}, {tIn[22]}, {tIn[23]}, {tIn[0]}, {tIn[1]}, {tIn[2]}, {tIn[3]}, {tIn[4]}, {tIn[5]}, {tIn[6]}, {tIn[7]},{tIn[8]}],");
+                sw.Write($"data:[");
+                for (int i = 0; i < 24; i++)
+                {
+                    if (tIn[i] > 0)
+                    {
+                        sw.Write($"{tIn[i]},");
+                    }
+                }
+                sw.WriteLine(" ],");
+
+//                sw.WriteLine($"data: [ {tIn[0]}, {tIn[1]}, {tIn[2]}, {tIn[3]}, {tIn[4]}, {tIn[5]}, {tIn[6]}, {tIn[7]}, {tIn[8]}, {tIn[9]}, {tIn[10]}, {tIn[11]}, {tIn[12]}, {tIn[13]}, {tIn[14]}, {tIn[15]}, {tIn[16]}, {tIn[17]}, {tIn[18]}, {tIn[19]}, {tIn[20]}, {tIn[21]}, {tIn[22]},{tIn[23]}  ],");
                 sw.WriteLine("borderColor: \"#3339FF\",");
+                sw.WriteLine("pointRadius: 2,");
                 sw.WriteLine("fill: false");
 
-
+                //INYesterday
                 sw.WriteLine("},{");
                 sw.WriteLine("label: \"InYesterday\",");
                 sw.WriteLine("type: \"line\",");
@@ -518,18 +598,28 @@ namespace WXsensorWebPage
                 sw.WriteLine($"data: [ {tInYesterday[0]}, {tInYesterday[1]}, {tInYesterday[2]}, {tInYesterday[3]}, {tInYesterday[4]}, {tInYesterday[5]}, {tInYesterday[6]}, {tInYesterday[7]}, {tInYesterday[8]}, {tInYesterday[9]}, {tInYesterday[10]}, {tInYesterday[11]}, {tInYesterday[12]}, {tInYesterday[13]}, {tInYesterday[14]}, {tInYesterday[15]}, {tInYesterday[16]}, {tInYesterday[17]}, {tInYesterday[18]}, {tInYesterday[19]}, {tInYesterday[20]}, {tInYesterday[21]}, {tInYesterday[22]},{tInYesterday[23]}  ],");
                 sw.WriteLine("borderDash: [10,4],");
                 sw.WriteLine("borderColor: \"rgba(151,187,205,0.4)\",");
+                sw.WriteLine("pointRadius: 2,");
                 sw.WriteLine("fill: false");
 
 
-
+                //BOM
                 sw.WriteLine("},{");
                 sw.WriteLine("label: \"BOM\",");
                 sw.WriteLine("type: \"line\",");
                 sw.WriteLine("backgroundColor: [\"green\"],");
                 //sw.WriteLine($"data: [{tBOM[9]}, {tBOM[10]}, {tBOM[11]}, {tBOM[12]}, {tBOM[13]}, {tBOM[14]}, {tBOM[15]}, {tBOM[16]}, {tBOM[17]}, {tBOM[18]}, {tBOM[19]}, {tBOM[20]}, {tBOM[21]}, {tBOM[22]}, {tBOM[23]}, {tBOM[0]}, {tBOM[1]}, {tBOM[2]}, {tBOM[3]}, {tBOM[4]}, {tBOM[5]}, {tBOM[6]}, {tBOM[7]},{tBOM[8]}],");
-                sw.WriteLine($"data: [ {tBOM[0]}, {tBOM[1]}, {tBOM[2]}, {tBOM[3]}, {tBOM[4]}, {tBOM[5]}, {tBOM[6]}, {tBOM[7]}, {tBOM[8]}, {tBOM[9]}, {tBOM[10]}, {tBOM[11]}, {tBOM[12]}, {tBOM[13]}, {tBOM[14]}, {tBOM[15]}, {tBOM[16]}, {tBOM[17]}, {tBOM[18]}, {tBOM[19]}, {tBOM[20]}, {tBOM[21]}, {tBOM[22]},{tBOM[23]}  ],");
-
+                sw.Write($"data:[");
+                for (int i = 0; i < 24; i++)
+                {
+                    if (tBOM[i] > 0)
+                    {
+                        sw.Write($"{tBOM[i]},");
+                    }
+                }
+                sw.WriteLine(" ],");
+                //sw.WriteLine($"data: [ {tBOM[0]}, {tBOM[1]}, {tBOM[2]}, {tBOM[3]}, {tBOM[4]}, {tBOM[5]}, {tBOM[6]}, {tBOM[7]}, {tBOM[8]}, {tBOM[9]}, {tBOM[10]}, {tBOM[11]}, {tBOM[12]}, {tBOM[13]}, {tBOM[14]}, {tBOM[15]}, {tBOM[16]}, {tBOM[17]}, {tBOM[18]}, {tBOM[19]}, {tBOM[20]}, {tBOM[21]}, {tBOM[22]},{tBOM[23]}  ],");
                 sw.WriteLine("borderColor: \"#42FF33\",");
+                sw.WriteLine("pointRadius: 2,");
                 sw.WriteLine("fill: false");
 
 
@@ -540,8 +630,19 @@ namespace WXsensorWebPage
                 sw.WriteLine("type: \"line\",");
                 sw.WriteLine("backgroundColor: [\"yellow\"],");
                 // sw.WriteLine($"data: [{tRover[9]}, {tRover[10]}, {tRover[11]}, {tRover[12]}, {tRover[13]}, {tRover[14]}, {tRover[15]}, {tRover[16]}, {tRover[17]}, {tRover[18]}, {tRover[19]}, {tRover[20]}, {tRover[21]}, {tRover[22]}, {tRover[23]}, {tRover[0]}, {tRover[1]}, {tRover[2]}, {tRover[3]}, {tRover[4]}, {tRover[5]}, {tRover[6]}, {tRover[7]},{tRover[8]}],");
-                sw.WriteLine($"data: [ {tRover[0]}, {tRover[1]}, {tRover[2]}, {tRover[3]}, {tRover[4]}, {tRover[5]}, {tRover[6]}, {tRover[7]}, {tRover[8]}, {tRover[9]}, {tRover[10]}, {tRover[11]}, {tRover[12]}, {tRover[13]}, {tRover[14]}, {tRover[15]}, {tRover[16]}, {tRover[17]}, {tRover[18]}, {tRover[19]}, {tRover[20]}, {tRover[21]}, {tRover[22]},{tRover[23]}  ],");
+                sw.Write($"data:[");
+                for (int i = 0; i < 24; i++)
+                {
+                    if (tRover[i] > 0)
+                    {
+                        sw.Write($"{tRover[i]},");
+                    }
+                }
+                sw.WriteLine(" ],");
+
+//                sw.WriteLine($"data: [ {tRover[0]}, {tRover[1]}, {tRover[2]}, {tRover[3]}, {tRover[4]}, {tRover[5]}, {tRover[6]}, {tRover[7]}, {tRover[8]}, {tRover[9]}, {tRover[10]}, {tRover[11]}, {tRover[12]}, {tRover[13]}, {tRover[14]}, {tRover[15]}, {tRover[16]}, {tRover[17]}, {tRover[18]}, {tRover[19]}, {tRover[20]}, {tRover[21]}, {tRover[22]},{tRover[23]}  ],");
                 sw.WriteLine("borderColor: \"#CCCC00\",");
+                sw.WriteLine("pointRadius: 2,");
                 sw.WriteLine("fill: false");
 
 
