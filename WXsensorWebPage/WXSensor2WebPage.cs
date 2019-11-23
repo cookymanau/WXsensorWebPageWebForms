@@ -59,38 +59,54 @@ namespace WXsensorWebPage
         }
         BOMReadings br = new BOMReadings();
         
-        
+       struct sensorCorrections
+        {//store the sensor correction factors
+            public double TinAdjust;
+            public double ToutAdjust;
+            public double TroverAdjust;
+            public double TpoolAdjust;
+            public double TbomAdjust;
+            public double HinAdjust;
+            public double HoutAdjust;
+            public double HroverAdjust;
+            public double HpoolAdjust;
+            public double HbomAdjust;
+        }
+        sensorCorrections sc = new sensorCorrections();
 
-
+        struct houseConditions
+        {//to store the cutoff conditions
+            public double ThighTemp;
+            public double TlowTemp;
+            public double WhighWind;
+        }
+        houseConditions hc = new houseConditions();  //store the house cutoffs
 
         static double barMax = 0.0;
         string connectionString = @"Data Source=192.168.1.109\DAWES_SQL2008; Database = WeatherStation; User Id = WeatherStation; Password = Esp32a.b.;";
-
-//        static string WXOUTconnString;
-//        static string WXROVERconnString;
-//        static string WXPOOLconnString;
-//        static string WXINconnString;
         static double tInAdjust, tOutAdjust, tRoverAdjust, tBOMadjust; //these are to calibrate the thermometers
-
         static uint recCnt = 0;
-
         static string now = DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
 
+        DateTime rightNow = DateTime.Now;
 
+        //this is the constructor
         public WXSensor2WebPage()
         {
             InitializeComponent();
             br.BcurrentPress = 999.9; //just in case
+            hc.ThighTemp = double.Parse(txtHighTempcondition.Text);
+            hc.TlowTemp = double.Parse(txtLowTempCondition.Text);
+            hc.WhighWind = double.Parse(txtHighWindCondition.Text);
         }
 
         private void btnExit_Click(object sender, EventArgs e)
         {
             Application.Exit();
-
         }
 
 
-        //Declaring timer - a FORMS timer
+        //Declaring timer - a FORMS timer Everything runs from this timer.
         public System.Windows.Forms.Timer aTimer = new System.Windows.Forms.Timer();
         void SetTimer()
         {
@@ -110,15 +126,15 @@ namespace WXsensorWebPage
             if (recCnt % 1 == 0)  //every tick this would be
             {
                 //fill the today arrays
-                readSensorDataFromDatabase("WXIN", tIn, tInYesterday);
+                readSensorDataFromDatabase("WXIN", tIn, tInYesterday,sc.TinAdjust);
                 System.Threading.Thread.Sleep(500);
-                readSensorDataFromDatabase("WXOUT", tOut, tOutYesterday);
+                readSensorDataFromDatabase("WXOUT", tOut, tOutYesterday,sc.ToutAdjust);
                 System.Threading.Thread.Sleep(500);
-                readSensorDataFromDatabase("WXROVER", tRover, tRoverYesterday);
+                readSensorDataFromDatabase("WXROVER", tRover, tRoverYesterday,sc.TroverAdjust);
                 System.Threading.Thread.Sleep(500);
-                readSensorDataFromDatabase("WXPOOL", tPool, tPoolYesterday);
+                readSensorDataFromDatabase("WXPOOL", tPool, tPoolYesterday,sc.TpoolAdjust);
                 System.Threading.Thread.Sleep(500);
-                readSensorDataFromDatabase("WXBOMGHILL", tBOM, tBOMYesterday);
+                readSensorDataFromDatabase("WXBOMGHILL", tBOM, tBOMYesterday,sc.TbomAdjust);
                 System.Threading.Thread.Sleep(500);
 
                 //get the current sensor reading from the database
@@ -133,14 +149,21 @@ namespace WXsensorWebPage
                 CurrentReadingFromDatabase("WXBOMGHILL");
                 System.Threading.Thread.Sleep(500);
                 BOMReadingFromDatabase("WXBOMGHILL");
+                //update the House Conditions
+                hc.ThighTemp = double.Parse(txtHighTempcondition.Text);
+                hc.TlowTemp = double.Parse(txtLowTempCondition.Text);
+                hc.WhighWind = double.Parse(txtHighWindCondition.Text);
+
                 writeToHTML();
+
             }
+            // this is the Twitter announcement.
             if (recCnt % 60 == 0 || recCnt == 2)  //every hour and just after startup
             {
                 webPOSTtoScarpWeather(  cr.cTEMPIn, cr.cHumidOut, cr.cPressureOut, cr.cTEMPOut);  //send it to Scarpweather
             }
 
-        }
+        }//end of the timed function
 
 
             private void btnStart_Click(object sender, EventArgs e)
@@ -148,7 +171,13 @@ namespace WXsensorWebPage
 
             lblStartTime.Text = now.ToString();
             btnStart.Text = "Running";
-            SetTimer(); //Start the loop
+            btnReadCorrections_Click(sender,e);
+           // CorrectionsFromDatabase("SENSORURL","WXIN"); //get the corrections
+           // CorrectionsFromDatabase("SENSORURL", "WXOUT"); //get the corrections
+           // CorrectionsFromDatabase("SENSORURL", "WXROVER"); //get the corrections
+           // CorrectionsFromDatabase("SENSORURL", "WXPOOL"); //get the corrections
+          //  CorrectionsFromDatabase("SENSORURL", "WXBOM"); //get the corrections
+            SetTimer(); //Start the timer loop and go forever
 
         }
 
@@ -158,7 +187,7 @@ namespace WXsensorWebPage
         /// <param name="table">The table in the SQL database to read from</param>
         /// <param name="tArray">The t array for the current 24 hours (midnight to midnight</param>
         /// <param name="tArrayYesterday">The t array yesterday.</param>
-        private void readSensorDataFromDatabase(string table, double[] tArray, double[] tArrayYesterday )
+        private void readSensorDataFromDatabase(string table, double[] tArray, double[] tArrayYesterday,double tAdjust )
         {
             SqlConnection conn;
             SqlDataReader rdr = null;
@@ -174,7 +203,7 @@ namespace WXsensorWebPage
             conn.Open();
             rdr = getReadings.ExecuteReader();
             lblNowTime.Text = rightNow.TimeOfDay.ToString();
-            //Array.Clear(tArray, 0, 24);
+            Array.Clear(tArray, 0, 24);
             while (rdr.Read())
             {
                 // get the results of each column
@@ -184,7 +213,7 @@ namespace WXsensorWebPage
                 if (rightNow.Day == rdngTime.Day)
                 {
                     intHour = (int)(rdngTime.Hour);
-                    tArray[intHour] = rdngTemp;    //get todays readings of temperature
+                    tArray[intHour] = rdngTemp + tAdjust;    //get todays readings of temperature and put in the array and add the correction
 
 
                 }
@@ -207,6 +236,7 @@ namespace WXsensorWebPage
             }
             conn.Close();
         }
+
         /// <summary>
         /// This gets the very latest readings from the database for display on the web page.
         /// </summary>
@@ -272,7 +302,6 @@ namespace WXsensorWebPage
             DateTime rdngTime;
             DateTime rightNow = DateTime.Now;
             int intDay, intHour;
-            //            CurrentReadings cr = new CurrentReadings();
 
             conn = new SqlConnection(connectionString);  //connectionString is a global ATM
             SqlCommand getReadings = new SqlCommand($"select  top 1 TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from {table} order by TIME DESC", conn);
@@ -281,7 +310,6 @@ namespace WXsensorWebPage
             while (rdr.Read())
             {
                 // get the results of each column
-                //                rdngTime = (DateTime)rdr["TIME"];
                 br.BcurrentTemp = (double)rdr["TEMP"];
                 br.BcurrentHumid = (double)rdr["HUMID"];
                 br.BcurrentPress = (double)rdr["PRESS"];
@@ -290,11 +318,58 @@ namespace WXsensorWebPage
                 br.BWindSpeed = (double)rdr["WINDSPEED"];
                 br.BWindDir = (string)rdr["WINDDIR"];
                 br.Brainfall = (double)rdr["RAINFALL"];
-
             }
             conn.Close();
         }
 
+        private void btnReadCorrections_Click(object sender, EventArgs e)
+        {
+            CorrectionsFromDatabase("SENSORURL", "WXIN"); //get the corrections
+            CorrectionsFromDatabase("SENSORURL", "WXOUT"); //get the corrections
+            CorrectionsFromDatabase("SENSORURL", "WXROVER"); //get the corrections
+            CorrectionsFromDatabase("SENSORURL", "WXPOOL"); //get the corrections
+            CorrectionsFromDatabase("SENSORURL", "WXBOM"); //get the corrections
+        }
+
+        /// <summary>
+        /// Read the sensor corrections from database.
+        /// </summary>
+        /// <param name="table">The table.</param>
+        private void CorrectionsFromDatabase(string table,string sens)
+        {// this only happens once - at the beginning of the program after the START button is pressed
+            SqlConnection conn;
+            SqlDataReader rdr = null;
+            double tInAdjust, tOutAdjust, tRoverAdjust, tPoolAdjust, tBomAdjust;
+            DateTime rdngTime;
+            DateTime rightNow = DateTime.Now;
+            int intDay, intHour;
+
+            conn = new SqlConnection(connectionString);  //connectionString is a global ATM
+            SqlCommand getReadings = new SqlCommand($"select  SENSOR,TEMP_CORRECTION,HUMID_CORRECTION from {table} where SENSOR ='{sens}' ", conn);
+            conn.Open();
+            rdr = getReadings.ExecuteReader();
+            while (rdr.Read())
+            {
+                // get the results of each column
+                if (sens == "WXIN")
+                {
+                    sc.TinAdjust = (float)rdr["TEMP_CORRECTION"]; 
+                }
+                else if (sens == "WXOUT")
+                {
+                    sc.ToutAdjust = (float)rdr["TEMP_CORRECTION"];
+                }
+                else if (sens == "WXROVER")
+                {
+                    sc.TroverAdjust = (float)rdr["TEMP_CORRECTION"];
+                }
+                else if (sens == "WXBOM")
+                {
+                    sc.TbomAdjust = (float)rdr["TEMP_CORRECTION"];
+                }
+            }
+            conn.Close();
+        }
 
         /// <summary>
         /// Posts the data to TWITTER scarp weather.
@@ -350,7 +425,9 @@ namespace WXsensorWebPage
 
 
 
-
+        /// <summary>
+        /// Writes the html fo the webpage
+        /// </summary>
         void writeToHTML()
         {
 
@@ -398,9 +475,9 @@ namespace WXsensorWebPage
                 sw.WriteLine(".button_yellow{background-color: yellow; color: black; font-size: 14px;}");
                 sw.WriteLine(".button_blue{background-color: blue; color: white; font-size: 14px;}");
 
-                sw.WriteLine(".button_blueInfo{background-color: blue; color: white;font-size: 20px; padding: 15px 32px;}");
-                sw.WriteLine(".button_redInfo{background-color: red; color: white;font-size: 20px; padding: 15px 32px;}");
-                sw.WriteLine(".button_greenInfo{background-color: green; color: white;font-size: 20px; padding: 15px 32px;}");
+                sw.WriteLine(".button_blueInfo{background-color: blue; color: white;font-size: 18px; padding: 10px 32px;}");
+                sw.WriteLine(".button_redInfo{background-color: red; color: white;font-size: 18px; padding: 10px 32px;}");
+                sw.WriteLine(".button_greenInfo{background-color: green; color: white;font-size: 18px; padding: 10px 32px;}");
 
                 sw.WriteLine(".button_info{background-color: lightgray; color: blue;font-size: 16px;}");
 
@@ -448,80 +525,49 @@ namespace WXsensorWebPage
                 //sw.WriteLine($"<td class=button_blue><button onclick = ""location.href = 'http://www.bom.gov.au/products/IDR703.loop.shtml'; "" target = ""_blank""  value = ""BOM Serpentine Radar"" /></td>");
                 sw.WriteLine("</tr></table>");
 
-                //sw.WriteLine("<div class=btn-group><button>Perth Forecast</button>");
-                //sw.WriteLine("<button>Radar</button>");
-                //sw.WriteLine("<button>Windy</button>");
-                //sw.WriteLine("</div>");
+                List<int> daylight = new List<int> { 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }; //list of the hours of daylight
 
-                //                sw.WriteLine("<center>");
-                //the rover is strOutTemp2
-//                float tempIn = curTemp;
-  //              float tempOut = (float)Math.Round(float.Parse(strOutTemp1), 1);
-             //   float tempBomMax = float.Parse(bomForecastTempMax);
-                List<int> daylight = new List<int> { 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 };
+                sw.WriteLine("<center>");
 
+                if (cr.cTEMPBom >= hc.ThighTemp && daylight.Contains(rightNow.Hour))
+                {//close house hot and its daylight
+                    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Close House HOT: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                }
+                else if (br.BestMax >= hc.ThighTemp && daylight.Contains(rightNow.Hour) && cr.cTEMPIn > hc.ThighTemp)
+                {//air con on its hot in the house, its daylight
+                    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"House HOT AirCon On: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                }
+                else if (cr.cTEMPIn < br.BestMax && cr.cTEMPIn > br.BestMin)
+                {
+                    sw.WriteLine($"<input type=button class=button_greenInfo onclick=location.href = '';  target=_blank value=\"Nice day - air out the house: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                }
+                else if (br.BestMax <= hc.TlowTemp)
+                { //close the house - its cold
+                    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Close House COLD: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                }
+                else if (!daylight.Contains(rightNow.Hour) && (cr.cTEMPIn >= hc.TlowTemp) || (cr.cTEMPIn <= hc.ThighTemp) )
+                {//its night time
+                    sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Its Night and balmy.  Open Up House: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                 } 
 
+                else if (!daylight.Contains(rightNow.Hour) && cr.cTEMPIn < hc.TlowTemp)
+                {//cold light the fire
+                    sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Its Too Cold, Light the fire.: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
 
-                //sw.WriteLine("<center>");
-
-                //if ((tempBomMax >= int.Parse(txtCloseHseTempHot.Text)) && (daylight.Contains(globalHour)))
-                //{
-                //    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Close House HOT: {Math.Round(tempOut - tempIn, 0)}\" />");
-
-                //}
-                //else if ((tempBomMax >= int.Parse(txtCloseHseTempHot.Text)) && (daylight.Contains(globalHour)) && tempIn > int.Parse(txtCloseHseTempHot.Text))
-                //{
-                //    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"House HOT AirCon On: {Math.Round(tempOut - tempIn, 0)}\" />");
-                //}
-                //else if (tempBomMax <= int.Parse(txtCloseHseTempCold.Text))
-                //{
-                //    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Close House COLD: {Math.Round(tempOut - tempIn, 0)}\" />");
-                //}
-                //else if ((tempIn > int.Parse(txtCloseHseTempCold.Text)) && (tempIn < int.Parse(txtCloseHseTempHot.Text)) && (tempBomMax <= int.Parse(txtBOMhot.Text)))
-                //{
-                //    sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Open Up House: {Math.Round(tempOut - tempIn, 0)}\" />");
-                //}
-                //else if (!daylight.Contains(globalHour) && (tempIn >= int.Parse(txtCloseHseTempCold.Text) || (tempIn) <= int.Parse(txtCloseHseTempHot.Text)))
-                //{
-                //    sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Its Night and balmy.  Open Up House: {Math.Round(tempOut - tempIn, 0)}\" />");
-
-                //} //its night time
-                //else if (!daylight.Contains(globalHour) && (tempIn < int.Parse(txtCloseHseTempCold.Text)))
-                //{
-                //    sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Its Too Cold, Light the fire.: {Math.Round(tempOut - tempIn, 0)}\" />");
-
-                //} //its night time
-                //else sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Unknown: {tempIn},{tempOut},{tempBomMax}\" />");
+                }
+                else sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Unknown:\" />");
 
                 ////sw.WriteLine($"<input type=button class=button_white onclick=location.href = '';  target=_blank value=\"Out Min: {dailyMin}, OutMax: {dailyMax}, In Min: {dailyInMin} In Max: {dailyInMax} \" />");
 
+                if (br.BWindSpeed > hc.WhighWind) {
+                    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"High Wind - Lower Yagi:\" />");
+                }
+
+
 
                 sw.WriteLine("</center>");
-                //sw.WriteLine($"<input type=button onclick=location.href = '';  target=_blank value=tMinOut={tMinOut} />");
-                //sw.WriteLine($"<input type=button onclick=location.href = '';  target=_blank value=tMaxOut={tMaxOut} />");
-                //sw.WriteLine($"<input type=button class=button_info onclick=location.href = '';  target=_blank value=BomTemp={BOM_temp} />");
-                //sw.WriteLine($"<input type=button class=button_info onclick=location.href = '';  target=_blank value=WindSpeed={BOM_windspeed} />");
-                //sw.WriteLine($"<input type=button class=button_info onclick=location.href = '';  target=_blank value=WindDirectn={BOM_winddir} />");
-                //sw.WriteLine($"<input type=button class=button_info  onclick=location.href = '';  target=_blank value=RoverTemp={strOutTemp2} />");
-                //sw.WriteLine("<br>");
-                //sw.WriteLine($"<input type=button class=button_info onclick=location.href = '';  target=_blank value=ForecastMin={bomForecastTempMin} />");
-
-                //sw.WriteLine($"<input type=button class=button_info  onclick=location.href = '';  target=_blank value=ForecastMax={bomForecastTempMax} />");
-                // sw.WriteLine(@"<input type=""button"" onclick=""location.href = 'http://www.bom.gov.au/wa/forecasts/perth.shtml'; "" target=""_blank"" value=""Perth Forecast"" />");
-                // sw.WriteLine(@"<input type=""button"" onclick=""location.href = 'http://www.bom.gov.au/products/IDR703.loop.shtml'; "" target=""_blank""  value=""BOM Serpentine Radar""  />");
-                //sw.WriteLine(@"<input type=""button"" onclick=""location.href = 'http://www.bom.gov.au/climate/averages/tables/cw_009240.shtml'; "" target=""_blank""  value=""BOM Averages""  />");
-                // sw.WriteLine(@"<input type=""button"" onclick=""location.href = 'https://www.windy.com/-Satellite-satellite?satellite,-31.875,115.778,6'; "" target=""_blank""  value=""Windy""  />");
-                //sw.WriteLine(@"<input type=""button"" onclick=""location.href = 'http://www.members.iinet.net.au/~richard_g/NOAA/wxtoimg/web/noaa.html'; "" target=""_blank""  value=""NOAA""  />");
-
+                                
                 sw.WriteLine("<p>");
-                //sw.WriteLine("<br>");
-                //sw.WriteLine("</div>");
-
-                //the weather forecast   
-                // sw.WriteLine("</center><ul>");
-                // sw.WriteLine($"<li><b>Synopsis:</b> {strBOMsynopsis} </li><p>");
-                // sw.WriteLine($"<li><b>Today:</b>   {strBOMtoday} </li><p>");
-                // sw.WriteLine($"<li><b>Tomorrow:</b>  {strBOMtomorrow} </li><p>");
                 sw.WriteLine("</ul><center>");
 
                 //the graph
@@ -537,7 +583,7 @@ namespace WXsensorWebPage
                 sw.WriteLine("type: 'bar',");
                 sw.WriteLine("data: {");
                 //sw.WriteLine(@"labels: [""9am"",""10am"",""11am"",""Noon"",""1pm"",""2pm"",""3pm"",""4pm"",""5pm"",""6pm"",""7pm"",""8pm"",""9pm"",""10pm"",""11pm"",""Midnight"",""1am"",""2am"",""3am"",""4am"",""5am"",""6am"",""7am"",""8am""],");
-                sw.WriteLine(@"labels: [""Midnight"",""1am"",""2am"",""3am"",""4am"",""5am"",""6am"",""7am"",""8am"",""9am"",""10am"",""11am"",""MidDay"",""1pm"",""2pm"",""3pm"",""4pm"",""5pm"",""6pm"",""7pm"",""8pm"",""9pm"",""10pm"",""11pm""],");
+                sw.WriteLine(@"labels: [""MidNight"",""1am"",""2am"",""3am"",""4am"",""5am"",""6am"",""7am"",""8am"",""9am"",""10am"",""11am"",""MidDay"",""1pm"",""2pm"",""3pm"",""4pm"",""5pm"",""6pm"",""7pm"",""8pm"",""9pm"",""10pm"",""11pm""],");
                 sw.WriteLine("datasets: [{");
 
 
@@ -700,7 +746,7 @@ namespace WXsensorWebPage
 
                 // sw.WriteLine("<center>");
                 sw.WriteLine(@"<span style=""font-family:Arial;font-size:12px;>""");
-                sw.WriteLine($"<p>Readings from Lesmurdie {fullDate}");
+                sw.WriteLine($"<p>Scarp Weather - Readings from Lesmurdie {fullDate}");
                 sw.WriteLine("</center>");
 
                 sw.WriteLine("</span></body></html>");

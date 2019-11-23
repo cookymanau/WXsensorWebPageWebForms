@@ -37,6 +37,14 @@
             this.label2 = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
             this.lblNowTime = new System.Windows.Forms.Label();
+            this.btnReadCorrections = new System.Windows.Forms.Button();
+            this.txtLowTempCondition = new System.Windows.Forms.TextBox();
+            this.txtHighTempcondition = new System.Windows.Forms.TextBox();
+            this.txtHighWindCondition = new System.Windows.Forms.TextBox();
+            this.label5 = new System.Windows.Forms.Label();
+            this.label6 = new System.Windows.Forms.Label();
+            this.label7 = new System.Windows.Forms.Label();
+            this.label8 = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // label1
@@ -51,7 +59,7 @@
             // lblStartTime
             // 
             this.lblStartTime.AutoSize = true;
-            this.lblStartTime.Location = new System.Drawing.Point(179, 113);
+            this.lblStartTime.Location = new System.Drawing.Point(142, 75);
             this.lblStartTime.Name = "lblStartTime";
             this.lblStartTime.Size = new System.Drawing.Size(97, 13);
             this.lblStartTime.TabIndex = 1;
@@ -59,7 +67,7 @@
             // 
             // btnStart
             // 
-            this.btnStart.Location = new System.Drawing.Point(50, 108);
+            this.btnStart.Location = new System.Drawing.Point(13, 70);
             this.btnStart.Name = "btnStart";
             this.btnStart.Size = new System.Drawing.Size(75, 23);
             this.btnStart.TabIndex = 2;
@@ -70,7 +78,7 @@
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(12, 59);
+            this.label3.Location = new System.Drawing.Point(12, 39);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(316, 26);
             this.label3.TabIndex = 3;
@@ -78,9 +86,9 @@
             // 
             // btnExit
             // 
-            this.btnExit.Location = new System.Drawing.Point(51, 194);
+            this.btnExit.Location = new System.Drawing.Point(288, 68);
             this.btnExit.Name = "btnExit";
-            this.btnExit.Size = new System.Drawing.Size(75, 23);
+            this.btnExit.Size = new System.Drawing.Size(40, 23);
             this.btnExit.TabIndex = 4;
             this.btnExit.Text = "Exit";
             this.btnExit.UseVisualStyleBackColor = true;
@@ -89,7 +97,7 @@
             // lblRecCnt
             // 
             this.lblRecCnt.AutoSize = true;
-            this.lblRecCnt.Location = new System.Drawing.Point(187, 143);
+            this.lblRecCnt.Location = new System.Drawing.Point(147, 101);
             this.lblRecCnt.Name = "lblRecCnt";
             this.lblRecCnt.Size = new System.Drawing.Size(38, 13);
             this.lblRecCnt.TabIndex = 5;
@@ -98,7 +106,7 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(57, 146);
+            this.label2.Location = new System.Drawing.Point(13, 104);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(82, 13);
             this.label2.TabIndex = 6;
@@ -107,26 +115,104 @@
             // label4
             // 
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(60, 170);
+            this.label4.Location = new System.Drawing.Point(13, 128);
             this.label4.Name = "label4";
-            this.label4.Size = new System.Drawing.Size(29, 13);
+            this.label4.Size = new System.Drawing.Size(55, 13);
             this.label4.TabIndex = 7;
-            this.label4.Text = "Now";
+            this.label4.Text = "Time Now";
             // 
             // lblNowTime
             // 
             this.lblNowTime.AutoSize = true;
-            this.lblNowTime.Location = new System.Drawing.Point(188, 170);
+            this.lblNowTime.Location = new System.Drawing.Point(148, 128);
             this.lblNowTime.Name = "lblNowTime";
             this.lblNowTime.Size = new System.Drawing.Size(52, 13);
             this.lblNowTime.TabIndex = 8;
             this.lblNowTime.Text = "NowTime";
             // 
+            // btnReadCorrections
+            // 
+            this.btnReadCorrections.Location = new System.Drawing.Point(230, 214);
+            this.btnReadCorrections.Name = "btnReadCorrections";
+            this.btnReadCorrections.Size = new System.Drawing.Size(95, 23);
+            this.btnReadCorrections.TabIndex = 9;
+            this.btnReadCorrections.Text = "read Corrections";
+            this.btnReadCorrections.UseVisualStyleBackColor = true;
+            this.btnReadCorrections.Click += new System.EventHandler(this.btnReadCorrections_Click);
+            // 
+            // txtLowTempCondition
+            // 
+            this.txtLowTempCondition.Location = new System.Drawing.Point(70, 174);
+            this.txtLowTempCondition.Name = "txtLowTempCondition";
+            this.txtLowTempCondition.Size = new System.Drawing.Size(37, 20);
+            this.txtLowTempCondition.TabIndex = 10;
+            this.txtLowTempCondition.Text = "18";
+            // 
+            // txtHighTempcondition
+            // 
+            this.txtHighTempcondition.Location = new System.Drawing.Point(70, 196);
+            this.txtHighTempcondition.Name = "txtHighTempcondition";
+            this.txtHighTempcondition.Size = new System.Drawing.Size(37, 20);
+            this.txtHighTempcondition.TabIndex = 11;
+            this.txtHighTempcondition.Text = "31";
+            // 
+            // txtHighWindCondition
+            // 
+            this.txtHighWindCondition.Location = new System.Drawing.Point(70, 220);
+            this.txtHighWindCondition.Name = "txtHighWindCondition";
+            this.txtHighWindCondition.Size = new System.Drawing.Size(37, 20);
+            this.txtHighWindCondition.TabIndex = 12;
+            this.txtHighWindCondition.Text = "64";
+            // 
+            // label5
+            // 
+            this.label5.AutoSize = true;
+            this.label5.Location = new System.Drawing.Point(10, 178);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(54, 13);
+            this.label5.TabIndex = 13;
+            this.label5.Text = "LowTemp";
+            // 
+            // label6
+            // 
+            this.label6.AutoSize = true;
+            this.label6.Location = new System.Drawing.Point(10, 200);
+            this.label6.Name = "label6";
+            this.label6.Size = new System.Drawing.Size(59, 13);
+            this.label6.TabIndex = 14;
+            this.label6.Text = "High Temp";
+            // 
+            // label7
+            // 
+            this.label7.AutoSize = true;
+            this.label7.Location = new System.Drawing.Point(10, 224);
+            this.label7.Name = "label7";
+            this.label7.Size = new System.Drawing.Size(54, 13);
+            this.label7.TabIndex = 15;
+            this.label7.Text = "HighWind";
+            // 
+            // label8
+            // 
+            this.label8.AutoSize = true;
+            this.label8.Location = new System.Drawing.Point(13, 158);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(90, 13);
+            this.label8.TabIndex = 16;
+            this.label8.Text = "House Conditions";
+            // 
             // WXSensor2WebPage
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(338, 223);
+            this.ClientSize = new System.Drawing.Size(333, 264);
+            this.Controls.Add(this.label8);
+            this.Controls.Add(this.label7);
+            this.Controls.Add(this.label6);
+            this.Controls.Add(this.label5);
+            this.Controls.Add(this.txtHighWindCondition);
+            this.Controls.Add(this.txtHighTempcondition);
+            this.Controls.Add(this.txtLowTempCondition);
+            this.Controls.Add(this.btnReadCorrections);
             this.Controls.Add(this.lblNowTime);
             this.Controls.Add(this.label4);
             this.Controls.Add(this.label2);
@@ -137,7 +223,7 @@
             this.Controls.Add(this.lblStartTime);
             this.Controls.Add(this.label1);
             this.Name = "WXSensor2WebPage";
-            this.Text = "Form1";
+            this.Text = "WXWebPageWriter";
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -154,6 +240,14 @@
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.Label lblNowTime;
+        private System.Windows.Forms.Button btnReadCorrections;
+        private System.Windows.Forms.TextBox txtLowTempCondition;
+        private System.Windows.Forms.TextBox txtHighTempcondition;
+        private System.Windows.Forms.TextBox txtHighWindCondition;
+        private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.Label label6;
+        private System.Windows.Forms.Label label7;
+        private System.Windows.Forms.Label label8;
     }
 }
 
