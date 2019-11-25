@@ -45,6 +45,8 @@
             this.label6 = new System.Windows.Forms.Label();
             this.label7 = new System.Windows.Forms.Label();
             this.label8 = new System.Windows.Forms.Label();
+            this.label9 = new System.Windows.Forms.Label();
+            this.txtWebUpdateCycle = new System.Windows.Forms.TextBox();
             this.SuspendLayout();
             // 
             // label1
@@ -73,7 +75,6 @@
             this.btnStart.TabIndex = 2;
             this.btnStart.Text = "Start";
             this.btnStart.UseVisualStyleBackColor = true;
-            this.btnStart.Click += new System.EventHandler(this.btnStart_Click);
             // 
             // label3
             // 
@@ -132,7 +133,7 @@
             // 
             // btnReadCorrections
             // 
-            this.btnReadCorrections.Location = new System.Drawing.Point(230, 214);
+            this.btnReadCorrections.Location = new System.Drawing.Point(226, 153);
             this.btnReadCorrections.Name = "btnReadCorrections";
             this.btnReadCorrections.Size = new System.Drawing.Size(95, 23);
             this.btnReadCorrections.TabIndex = 9;
@@ -162,7 +163,7 @@
             this.txtHighWindCondition.Name = "txtHighWindCondition";
             this.txtHighWindCondition.Size = new System.Drawing.Size(37, 20);
             this.txtHighWindCondition.TabIndex = 12;
-            this.txtHighWindCondition.Text = "64";
+            this.txtHighWindCondition.Text = "40";
             // 
             // label5
             // 
@@ -200,11 +201,30 @@
             this.label8.TabIndex = 16;
             this.label8.Text = "House Conditions";
             // 
+            // label9
+            // 
+            this.label9.AutoSize = true;
+            this.label9.Location = new System.Drawing.Point(10, 257);
+            this.label9.Name = "label9";
+            this.label9.Size = new System.Drawing.Size(170, 13);
+            this.label9.TabIndex = 17;
+            this.label9.Text = "Web Update Frequency (seconds)";
+            // 
+            // txtWebUpdateCycle
+            // 
+            this.txtWebUpdateCycle.Location = new System.Drawing.Point(190, 254);
+            this.txtWebUpdateCycle.Name = "txtWebUpdateCycle";
+            this.txtWebUpdateCycle.Size = new System.Drawing.Size(32, 20);
+            this.txtWebUpdateCycle.TabIndex = 18;
+            this.txtWebUpdateCycle.Text = "120";
+            // 
             // WXSensor2WebPage
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(333, 264);
+            this.ClientSize = new System.Drawing.Size(333, 297);
+            this.Controls.Add(this.txtWebUpdateCycle);
+            this.Controls.Add(this.label9);
             this.Controls.Add(this.label8);
             this.Controls.Add(this.label7);
             this.Controls.Add(this.label6);
@@ -248,6 +268,8 @@
         private System.Windows.Forms.Label label6;
         private System.Windows.Forms.Label label7;
         private System.Windows.Forms.Label label8;
+        private System.Windows.Forms.Label label9;
+        private System.Windows.Forms.TextBox txtWebUpdateCycle;
     }
 }
 

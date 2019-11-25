@@ -94,12 +94,12 @@ namespace WXsensorWebPage
         public WXSensor2WebPage()
         {
             InitializeComponent();
-            StartProgram();
             writeToLog("Program start");
             br.BcurrentPress = 999.9; //just in case
             hc.ThighTemp = double.Parse(txtHighTempcondition.Text);
             hc.TlowTemp = double.Parse(txtLowTempCondition.Text);
             hc.WhighWind = double.Parse(txtHighWindCondition.Text);
+            StartProgram();
         }
 
         private void btnExit_Click(object sender, EventArgs e)
@@ -113,14 +113,14 @@ namespace WXsensorWebPage
         void SetTimer()
         {
             aTimer.Tick += OnTimedEvent;
-            aTimer.Interval = 30000; //miliseconds - fixed at once every minute for the basic tick
+            aTimer.Interval = 60000; //miliseconds - fixed at once every minute for the basic tick
             aTimer.Enabled = true;
         }
 
         void OnTimedEvent(Object sender, EventArgs e)
         {
             //creating a new static instance of our form so the next line does not yell at me
-            WXSensor2WebPage sd = new WXSensor2WebPage();
+           // WXSensor2WebPage sd = new WXSensor2WebPage();
 
             recCnt += 1;  //the first time through recCnt=1 (0 based)
 
@@ -160,26 +160,33 @@ namespace WXsensorWebPage
 
             }
             // this is the Twitter announcement.
-            if (recCnt % 60 == 0 || recCnt == 2)  //every hour and just after startup
+            if (recCnt % 60 == 0 || recCnt == 2)  //every 1 hour and just after startup
             {
                 webPOSTtoScarpWeather(cr.cTEMPIn, cr.cHumidOut, cr.cPressureOut, cr.cTEMPOut);  //send it to Scarpweather
+                writeToLog($"WebPost To Twitter(every 60 and once at 2), Record Number: {recCnt}");
             }
+
+            if ( recCnt == 1)
+            {
+                ReadCorrections();
+                writeToLog($"Reading the corrections At Record Number: {recCnt}");
+            }
+
+            if (recCnt %30 == 0)
+            {
+                //status report to log every 30 counts
+                writeToLog($" ***Status Report...OK At Record Number: {recCnt} ");
+            }
+
 
         }//end of the timed function
 
-        private void btnStart_Click(object sender, EventArgs e) { }
+        //private void btnStart_Click(object sender, EventArgs e) { }
 
         private void StartProgram()
         {
             lblStartTime.Text = now.ToString();
             btnStart.Text = "Running";
-            //btnReadCorrections_Click(sender, e);
-            ReadCorrections();
-            // CorrectionsFromDatabase("SENSORURL","WXIN"); //get the corrections
-            // CorrectionsFromDatabase("SENSORURL", "WXOUT"); //get the corrections
-            // CorrectionsFromDatabase("SENSORURL", "WXROVER"); //get the corrections
-            // CorrectionsFromDatabase("SENSORURL", "WXPOOL"); //get the corrections
-            //  CorrectionsFromDatabase("SENSORURL", "WXBOM"); //get the corrections
             SetTimer(); //Start the timer loop and go forever
 
         }
@@ -384,6 +391,7 @@ namespace WXsensorWebPage
             }
             catch (Exception ex){
                 writeToLog($"Error reading corrections from the database {ex}");}
+
         }// end of CorrectionsFromDatabase
 
         private void btnReadCorrections_Click(object sender, EventArgs e)
@@ -468,15 +476,16 @@ namespace WXsensorWebPage
             // var pathWithEnv = @"%USERPROFILE%\AppData\Local\MyProg\settings.file";
             var pathWithEnv = @"c:\inetpub\wwwroot\index.html";
             var filePath = Environment.ExpandEnvironmentVariables(pathWithEnv);
-
+            string updateCycle;  //= txtWebUpdateCycle.Text;
             using (StreamWriter sw = new StreamWriter(filePath, append: false))  //using controls low-level resource useage
             {
                 string now = DateTime.Now.ToString("h:mm:ss tt");
                 string fullDate = DateTime.Now.ToString("dd/MM/yyyy h:mm:ss tt");
+                updateCycle = txtWebUpdateCycle.Text;
 
                 sw.WriteLine("<HTML><HEAD>");
                 sw.WriteLine("<title>SCARP Weather</title>");
-                sw.WriteLine("<meta http-equiv = \"refresh\" content = \"60\" >");// 1 is 1 second  60 is 60 seconds
+                sw.WriteLine($"<meta http-equiv = \"refresh\" content = \"{updateCycle}\" >");// 1 is 1 second  60 is 60 seconds
 
                 sw.WriteLine(@"<meta name=""viewport"" content=""width = device - width, initial - scale = 1"">");
                 sw.WriteLine("<style>");
