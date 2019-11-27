@@ -99,6 +99,14 @@ namespace WXsensorWebPage
             hc.ThighTemp = double.Parse(txtHighTempcondition.Text);
             hc.TlowTemp = double.Parse(txtLowTempCondition.Text);
             hc.WhighWind = double.Parse(txtHighWindCondition.Text);
+
+            double tempAvgThisHour = getTempTrendHourly("WXOUT", 1);
+               txtTempNow.Text = tempAvgThisHour.ToString();
+
+            double tempAvgLastHour = getTempTrendHourly("WXOUT", 2);
+               txtTempLast.Text = tempAvgLastHour.ToString();
+            txtTrend.Text = (tempAvgThisHour - tempAvgLastHour).ToString();
+
             StartProgram();
         }
 
@@ -155,6 +163,15 @@ namespace WXsensorWebPage
                 hc.ThighTemp = double.Parse(txtHighTempcondition.Text);
                 hc.TlowTemp = double.Parse(txtLowTempCondition.Text);
                 hc.WhighWind = double.Parse(txtHighWindCondition.Text);
+
+                double tempAvgThisHour = getTempTrendHourly("WXOUT", 1);
+                txtTempNow.Text = tempAvgThisHour.ToString();
+
+                double tempAvgLastHour = getTempTrendHourly("WXOUT", 2);
+                txtTempLast.Text = tempAvgLastHour.ToString();
+                txtTrend.Text = (tempAvgThisHour - tempAvgLastHour).ToString();
+
+
 
                 writeToHTML();
 
@@ -355,6 +372,27 @@ namespace WXsensorWebPage
             CorrectionsFromDatabase("SENSORURL", "WXBOM"); //get the corrections
             
         }
+
+
+
+        private double getTempTrendHourly(string table,double rownum) {
+
+            string getTEMPHour = $"select TOP 1 * from (select row_number() over (order by TIME DESC) as ROWNUMBER,TIME, ROUND(AvgValue,1) as AvgTemp from (select TIME=dateadd(hh,datepart(hh,TIME), cast(CAST(TIME as date) as datetime)), AvgValue=AVG(TEMP)from  {table} group by dateadd(hh,datepart(hh,TIME), cast(CAST(TIME as date) as datetime)))a)b where ROWNUMBER = {rownum}";
+            
+            SqlConnection conn;
+            SqlDataReader rdr = null;
+
+            conn = new SqlConnection(connectionString);  //connectionString is a global ATM
+            SqlCommand getHour = new SqlCommand(getTEMPHour, conn);
+            conn.Open();
+            rdr = getHour.ExecuteReader();
+
+            rdr.Read();
+            return (double)rdr["AvgTemp"];
+            //return 
+        }
+
+
 
         /// <summary>
         /// Read the sensor corrections from database.
@@ -592,9 +630,20 @@ namespace WXsensorWebPage
 
                 ////sw.WriteLine($"<input type=button class=button_white onclick=location.href = '';  target=_blank value=\"Out Min: {dailyMin}, OutMax: {dailyMax}, In Min: {dailyInMin} In Max: {dailyInMax} \" />");
 
+
+                //sw.WriteLine("<div id = \"rigref-solar-widget\"><a href=\"https://rigreference.com/solar\" target = \"_blank\" ><img src=\"https://rigreference.com/solar/img/wide\" border=\"0\"></a></div>");
+
+
+
+
+
+
+
+
                 if (br.BWindSpeed > hc.WhighWind) {
                     sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"High Wind - Lower Yagi:\" />");
                 }
+
 
                 sw.WriteLine("</center>");
                 sw.WriteLine("<p>");

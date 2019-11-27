@@ -47,6 +47,9 @@
             this.label8 = new System.Windows.Forms.Label();
             this.label9 = new System.Windows.Forms.Label();
             this.txtWebUpdateCycle = new System.Windows.Forms.TextBox();
+            this.txtTempNow = new System.Windows.Forms.TextBox();
+            this.txtTempLast = new System.Windows.Forms.TextBox();
+            this.txtTrend = new System.Windows.Forms.TextBox();
             this.SuspendLayout();
             // 
             // label1
@@ -218,11 +221,35 @@
             this.txtWebUpdateCycle.TabIndex = 18;
             this.txtWebUpdateCycle.Text = "120";
             // 
+            // txtTempNow
+            // 
+            this.txtTempNow.Location = new System.Drawing.Point(45, 307);
+            this.txtTempNow.Name = "txtTempNow";
+            this.txtTempNow.Size = new System.Drawing.Size(58, 20);
+            this.txtTempNow.TabIndex = 19;
+            // 
+            // txtTempLast
+            // 
+            this.txtTempLast.Location = new System.Drawing.Point(122, 307);
+            this.txtTempLast.Name = "txtTempLast";
+            this.txtTempLast.Size = new System.Drawing.Size(63, 20);
+            this.txtTempLast.TabIndex = 20;
+            // 
+            // txtTrend
+            // 
+            this.txtTrend.Location = new System.Drawing.Point(211, 309);
+            this.txtTrend.Name = "txtTrend";
+            this.txtTrend.Size = new System.Drawing.Size(100, 20);
+            this.txtTrend.TabIndex = 21;
+            // 
             // WXSensor2WebPage
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(333, 297);
+            this.ClientSize = new System.Drawing.Size(333, 412);
+            this.Controls.Add(this.txtTrend);
+            this.Controls.Add(this.txtTempLast);
+            this.Controls.Add(this.txtTempNow);
             this.Controls.Add(this.txtWebUpdateCycle);
             this.Controls.Add(this.label9);
             this.Controls.Add(this.label8);
@@ -270,6 +297,9 @@
         private System.Windows.Forms.Label label8;
         private System.Windows.Forms.Label label9;
         private System.Windows.Forms.TextBox txtWebUpdateCycle;
+        private System.Windows.Forms.TextBox txtTempNow;
+        private System.Windows.Forms.TextBox txtTempLast;
+        private System.Windows.Forms.TextBox txtTrend;
     }
 }
 
