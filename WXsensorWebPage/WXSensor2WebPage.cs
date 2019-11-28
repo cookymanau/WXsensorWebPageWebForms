@@ -118,11 +118,10 @@ namespace WXsensorWebPage
             hc.WhighWind = double.Parse(txtHighWindCondition.Text);
 
             double tempAvgThisHour = getTempTrendHourly("WXOUT", 1);
-               txtTempNow.Text = tempAvgThisHour.ToString();
-
+ 
             double tempAvgLastHour = getTempTrendHourly("WXOUT", 2);
-               txtTempLast.Text = tempAvgLastHour.ToString();
-            txtTrend.Text = (tempAvgThisHour - tempAvgLastHour).ToString();
+              
+           
 
             StartProgram();
         }
@@ -184,17 +183,16 @@ namespace WXsensorWebPage
                 // this is the averaging / trending data
                 //double tempAvgThisHour = getTempTrendHourly("WXOUT", 1);
                 td.wxOut1 = getTempTrendHourly("WXOUT", 1);
-                txtTempNow.Text = td.wxOut1.ToString();
-
                 td.wxOut2 = getTempTrendHourly("WXOUT", 2);
-                txtTempLast.Text = td.wxOut2.ToString();
-
+                
                 td.wxOut3 = getTempTrendHourly("WXOUT", 3);
                 
                 td.trend1 = td.wxOut1 - td.wxOut2;
                 td.trend2 = td.wxOut2 - td.wxOut3;
 
-                txtTrend.Text = td.trend1.ToString();
+                td.trend1 = Math.Round(td.trend1, 1);
+                td.trend2 = Math.Round(td.trend2, 1);
+
 
                 writeToHTML();  //write the index.html page
             }
@@ -627,10 +625,21 @@ namespace WXsensorWebPage
 
                 sw.WriteLine("<center>");
 
-                if (cr.cTEMPBom >= hc.ThighTemp && daylight.Contains(rightNow.Hour))
+                if (cr.cTEMPOut >= hc.ThighTemp && daylight.Contains(rightNow.Hour))
                 {//close house hot and its daylight
-                    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Close House HOT: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Close House: Its HOT: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
                 }
+                else if (br.BestMax > hc.ThighTemp && td.trend2 >2 ) {
+                    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Close House: Trending Hot, Lock in the cool: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                }
+
+                else if (cr.cTEMPOut < cr.cTEMPIn && td.trend2 < 1)
+                {
+                    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Open House: Trending cool, Its cooler outside: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                }
+
+
+
                 else if (br.BestMax >= hc.ThighTemp && daylight.Contains(rightNow.Hour) && cr.cTEMPIn > hc.ThighTemp)
                 {//air con on its hot in the house, its daylight
                     sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"House HOT AirCon On: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
@@ -643,10 +652,10 @@ namespace WXsensorWebPage
                 { //close the house - its cold
                     sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Close House COLD: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
                 }
-                else if (!daylight.Contains(rightNow.Hour) && (cr.cTEMPIn >= hc.TlowTemp) || (cr.cTEMPIn <= hc.ThighTemp) )
+                else if (!daylight.Contains(rightNow.Hour) && (cr.cTEMPIn >= hc.TlowTemp) || (cr.cTEMPIn <= hc.ThighTemp))
                 {//its night time
                     sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Its Night and balmy.  Open Up House: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
-                 } 
+                }
                 else if (!daylight.Contains(rightNow.Hour) && cr.cTEMPIn < hc.TlowTemp)
                 {//cold light the fire
                     sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Its Too Cold, Light the fire.: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
