@@ -82,6 +82,23 @@ namespace WXsensorWebPage
         }
         houseConditions hc = new houseConditions();  //store the house cutoffs
 
+
+        struct trendingData
+        {//to store the average data brought back from the database
+            public double wxOut1; //avg temp this hour
+            public double wxOut2; //avg temp previous hour
+            public double wxOut3; //avg temp the 2hrs back
+            public double trend1; //difference between wxOut1 - wxOut0
+            public double trend2; //diffnce between wxOut1 - wxOut2
+            public double wxIn1;
+            public double wxIn2;
+            public double wxIn3;
+        }
+
+        trendingData td = new trendingData(); //WX averaging data
+
+
+
         static double barMax = 0.0;
         string connectionString = @"Data Source=192.168.1.109\DAWES_SQL2008; Database = WeatherStation; User Id = WeatherStation; Password = Esp32a.b.;";
         static double tInAdjust, tOutAdjust, tRoverAdjust, tBOMadjust; //these are to calibrate the thermometers
@@ -164,24 +181,30 @@ namespace WXsensorWebPage
                 hc.TlowTemp = double.Parse(txtLowTempCondition.Text);
                 hc.WhighWind = double.Parse(txtHighWindCondition.Text);
 
-                double tempAvgThisHour = getTempTrendHourly("WXOUT", 1);
-                txtTempNow.Text = tempAvgThisHour.ToString();
+                // this is the averaging / trending data
+                //double tempAvgThisHour = getTempTrendHourly("WXOUT", 1);
+                td.wxOut1 = getTempTrendHourly("WXOUT", 1);
+                txtTempNow.Text = td.wxOut1.ToString();
 
-                double tempAvgLastHour = getTempTrendHourly("WXOUT", 2);
-                txtTempLast.Text = tempAvgLastHour.ToString();
-                txtTrend.Text = (tempAvgThisHour - tempAvgLastHour).ToString();
+                td.wxOut2 = getTempTrendHourly("WXOUT", 2);
+                txtTempLast.Text = td.wxOut2.ToString();
 
+                td.wxOut3 = getTempTrendHourly("WXOUT", 3);
+                
+                td.trend1 = td.wxOut1 - td.wxOut2;
+                td.trend2 = td.wxOut2 - td.wxOut3;
 
+                txtTrend.Text = td.trend1.ToString();
 
-                writeToHTML();
-
+                writeToHTML();  //write the index.html page
             }
             // this is the Twitter announcement.
-            if (recCnt % 60 == 0 || recCnt == 2)  //every 1 hour and just after startup
+            if ((recCnt % 60 == 0 || recCnt == 2) && chkTweet.Checked) //every 1 hour and just after startup
             {
                 webPOSTtoScarpWeather(cr.cTEMPIn, cr.cHumidOut, cr.cPressureOut, cr.cTEMPOut);  //send it to Scarpweather
                 writeToLog($"WebPost To Twitter(every 60 and once at 2), Record Number: {recCnt}");
             }
+
 
             if ( recCnt == 1)
             {
@@ -381,14 +404,16 @@ namespace WXsensorWebPage
             
             SqlConnection conn;
             SqlDataReader rdr = null;
-
+            double data;
             conn = new SqlConnection(connectionString);  //connectionString is a global ATM
             SqlCommand getHour = new SqlCommand(getTEMPHour, conn);
             conn.Open();
             rdr = getHour.ExecuteReader();
 
             rdr.Read();
-            return (double)rdr["AvgTemp"];
+            data = (double)rdr["AvgTemp"];
+            conn.Close();
+            return data;
             //return 
         }
 
@@ -634,7 +659,7 @@ namespace WXsensorWebPage
                 //sw.WriteLine("<div id = \"rigref-solar-widget\"><a href=\"https://rigreference.com/solar\" target = \"_blank\" ><img src=\"https://rigreference.com/solar/img/wide\" border=\"0\"></a></div>");
 
 
-
+                sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"trend 1:{td.trend1}  trend 2:{td.trend2}\" />");
 
 
 

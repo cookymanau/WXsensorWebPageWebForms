@@ -50,6 +50,7 @@
             this.txtTempNow = new System.Windows.Forms.TextBox();
             this.txtTempLast = new System.Windows.Forms.TextBox();
             this.txtTrend = new System.Windows.Forms.TextBox();
+            this.chkTweet = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
             // 
             // label1
@@ -242,11 +243,24 @@
             this.txtTrend.Size = new System.Drawing.Size(100, 20);
             this.txtTrend.TabIndex = 21;
             // 
+            // chkTweet
+            // 
+            this.chkTweet.AutoSize = true;
+            this.chkTweet.Checked = true;
+            this.chkTweet.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.chkTweet.Location = new System.Drawing.Point(226, 182);
+            this.chkTweet.Name = "chkTweet";
+            this.chkTweet.Size = new System.Drawing.Size(56, 17);
+            this.chkTweet.TabIndex = 22;
+            this.chkTweet.Text = "Tweet";
+            this.chkTweet.UseVisualStyleBackColor = true;
+            // 
             // WXSensor2WebPage
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(333, 412);
+            this.Controls.Add(this.chkTweet);
             this.Controls.Add(this.txtTrend);
             this.Controls.Add(this.txtTempLast);
             this.Controls.Add(this.txtTempNow);
@@ -300,6 +314,7 @@
         private System.Windows.Forms.TextBox txtTempNow;
         private System.Windows.Forms.TextBox txtTempLast;
         private System.Windows.Forms.TextBox txtTrend;
+        private System.Windows.Forms.CheckBox chkTweet;
     }
 }
 
