@@ -156,7 +156,7 @@
             this.txtHighTempcondition.Name = "txtHighTempcondition";
             this.txtHighTempcondition.Size = new System.Drawing.Size(37, 20);
             this.txtHighTempcondition.TabIndex = 11;
-            this.txtHighTempcondition.Text = "31";
+            this.txtHighTempcondition.Text = "30";
             // 
             // txtHighWindCondition
             // 

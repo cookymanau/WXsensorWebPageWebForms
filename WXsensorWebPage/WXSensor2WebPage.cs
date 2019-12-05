@@ -197,7 +197,7 @@ namespace WXsensorWebPage
                 writeToHTML();  //write the index.html page
             }
             // this is the Twitter announcement.
-            if ((recCnt % 60 == 0 || recCnt == 2) && chkTweet.Checked) //every 1 hour and just after startup
+            if ((recCnt % 90 == 0 || recCnt == 2) && chkTweet.Checked) //every 90 mins and just after startup  IFFT have changed their rules to 26 tweets per day
             {
                 webPOSTtoScarpWeather(cr.cTEMPIn, cr.cHumidOut, cr.cPressureOut, cr.cTEMPOut);  //send it to Scarpweather
                 writeToLog($"WebPost To Twitter(every 60 and once at 2), Record Number: {recCnt}");
@@ -244,7 +244,23 @@ namespace WXsensorWebPage
             DateTime rightNow = DateTime.Now;
             int intHour;
             conn = new SqlConnection(connectionString);  //connectionString is a global ATM
-            SqlCommand getReadings = new SqlCommand($"select TIME, ROUND(AvgValue, 1) as AvgTemp from(select TIME = dateadd(hh, datepart(hh, TIME), cast(CAST(TIME as date) as datetime)), AvgValue = AVG(TEMP)from {table} group by dateadd(hh, datepart(hh, TIME), cast(CAST(TIME as date) as datetime)))a order by TIME DESC", conn);
+     //     SqlCommand getReadings = new SqlCommand($"select TIME, ROUND(AvgValue, 1) as AvgTemp from(select TIME = dateadd(hh, datepart(hh, TIME), cast(CAST(TIME as date) as datetime)), AvgValue = AVG(TEMP)from {table} group by dateadd(hh, datepart(hh, TIME), cast(CAST(TIME as date) as datetime)))a order by TIME DESC", conn);
+
+            //this bit courtesy of stackoverflow - how to do these sort of long queries in C# formatting
+            // get the reading from the database as closes as possible to the hour - a few seconds either side
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            sb.AppendLine($"select * from {table} yt join( ");
+            sb.AppendLine(@"  select  min(TIME) as dt ");
+            sb.AppendLine($" from {table} ");
+            sb.AppendLine(@" where datediff(day, TIME, getdate()) <= 60  ");
+            sb.AppendLine(@" group by cast(TIME as date), datepart(hh, TIME)  ");
+            sb.AppendLine(@" ) filter  ");
+            sb.AppendLine(@" on  filter.dt = yt.TIME ");
+            sb.AppendLine(@" order by TIME DESC ");
+
+            string topOfTheHour = sb.ToString();  //make a big single string of the query...and execute it
+            SqlCommand getReadings = new SqlCommand(topOfTheHour,conn);
+
             try
             {
                 conn.Open();
@@ -255,7 +271,9 @@ namespace WXsensorWebPage
                 {
                     // get the results of each column
                     rdngTime = (DateTime)rdr["TIME"];
-                    rdngTemp = (double)rdr["AvgTemp"];
+                    
+                    //rdngTemp = (double)rdr["AvgTemp"];
+                    rdngTemp = (double)rdr["TEMP"];
 
                     if (rightNow.Day == rdngTime.Day)
                     {
@@ -398,7 +416,23 @@ namespace WXsensorWebPage
 
         private double getTempTrendHourly(string table,double rownum) {
 
-            string getTEMPHour = $"select TOP 1 * from (select row_number() over (order by TIME DESC) as ROWNUMBER,TIME, ROUND(AvgValue,1) as AvgTemp from (select TIME=dateadd(hh,datepart(hh,TIME), cast(CAST(TIME as date) as datetime)), AvgValue=AVG(TEMP)from  {table} group by dateadd(hh,datepart(hh,TIME), cast(CAST(TIME as date) as datetime)))a)b where ROWNUMBER = {rownum}";
+            //string getTEMPHour = $"select TOP 1 * from (select row_number() over (order by TIME DESC) as ROWNUMBER,TIME, ROUND(AvgValue,1) as AvgTemp from (select TIME=dateadd(hh,datepart(hh,TIME), cast(CAST(TIME as date) as datetime)), AvgValue=AVG(TEMP)from  {table} group by dateadd(hh,datepart(hh,TIME), cast(CAST(TIME as date) as datetime)))a)b where ROWNUMBER = {rownum}";
+
+
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            sb.AppendLine($"SELECT * FROM( ");
+            sb.AppendLine($" select top 5 *, ROWNUMBER = row_number() over(order by TIME desc) from {table} yt join ( ");
+            sb.AppendLine($" select min(TIME) as dt ");
+            sb.AppendLine($"from {table} ");
+            sb.AppendLine($" where datediff(day, TIME, getdate()) <= 60 ");
+            sb.AppendLine($"group by cast(TIME as date),datepart(hh, TIME) ");
+            sb.AppendLine($" ) filter ");
+            sb.AppendLine($" on  filter.dt = yt.TIME ");
+            sb.AppendLine($" )b where ROWNUMBER = {rownum} ");
+            sb.AppendLine($" order by TIME desc ");
+
+            string getTEMPHour = sb.ToString();
+
             
             SqlConnection conn;
             SqlDataReader rdr = null;
@@ -409,7 +443,7 @@ namespace WXsensorWebPage
             rdr = getHour.ExecuteReader();
 
             rdr.Read();
-            data = (double)rdr["AvgTemp"];
+            data = (double)rdr["TEMP"];
             conn.Close();
             return data;
             //return 
@@ -644,17 +678,13 @@ namespace WXsensorWebPage
                 {//air con on its hot in the house, its daylight
                     sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"House HOT AirCon On: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
                 }
-                else if (cr.cTEMPIn < br.BestMax && cr.cTEMPIn > br.BestMin)
-                {
-                    sw.WriteLine($"<input type=button class=button_greenInfo onclick=location.href = '';  target=_blank value=\"Nice day - air out the house: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
-                }
                 else if (br.BestMax <= hc.TlowTemp)
                 { //close the house - its cold
                     sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Close House COLD: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
                 }
-                else if (!daylight.Contains(rightNow.Hour) && (cr.cTEMPIn >= hc.TlowTemp) || (cr.cTEMPIn <= hc.ThighTemp))
+                else if (!daylight.Contains(rightNow.Hour) && (cr.cTEMPIn >= hc.TlowTemp) || (cr.cTEMPIn <= hc.ThighTemp)  && cr.cTEMPOut < hc.ThighTemp)
                 {//its night time
-                    sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Its Night and balmy.  Open Up House: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                    sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Its Night and balmy. Open Up House: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
                 }
                 else if (!daylight.Contains(rightNow.Hour) && cr.cTEMPIn < hc.TlowTemp)
                 {//cold light the fire
@@ -668,7 +698,7 @@ namespace WXsensorWebPage
                 //sw.WriteLine("<div id = \"rigref-solar-widget\"><a href=\"https://rigreference.com/solar\" target = \"_blank\" ><img src=\"https://rigreference.com/solar/img/wide\" border=\"0\"></a></div>");
 
 
-                sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"trend 1:{td.trend1}  trend 2:{td.trend2}\" />");
+                sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Trend Now:Previous {td.trend1} : {td.trend2}\" />");
 
 
 
@@ -695,6 +725,7 @@ namespace WXsensorWebPage
 
                 //OUT
                 sw.WriteLine("label: \"Out\",");
+               // sw.WriteLine("yAxisID: \"Out\",");
                 sw.WriteLine("backgroundColor: [\"red\"],");
                 sw.Write($"data:[");
                 for (int i = 0; i < 24; i++){
@@ -714,6 +745,7 @@ namespace WXsensorWebPage
                 sw.WriteLine("type: \"line\",");
                 sw.WriteLine("backgroundColor: [\"rgba(247,70,74,0.2)\"],");
                 sw.WriteLine($"data: [ {tOutYesterday[0]}, {tOutYesterday[1]}, {tOutYesterday[2]}, {tOutYesterday[3]}, {tOutYesterday[4]}, {tOutYesterday[5]}, {tOutYesterday[6]}, {tOutYesterday[7]}, {tOutYesterday[8]}, {tOutYesterday[9]}, {tOutYesterday[10]}, {tOutYesterday[11]}, {tOutYesterday[12]}, {tOutYesterday[13]}, {tOutYesterday[14]}, {tOutYesterday[15]}, {tOutYesterday[16]}, {tOutYesterday[17]}, {tOutYesterday[18]}, {tOutYesterday[19]}, {tOutYesterday[20]}, {tOutYesterday[21]}, {tOutYesterday[22]},{tOutYesterday[23]}  ],");
+          //      sw.WriteLine("yAxisID: \"y-axis-1\",");
                 sw.WriteLine("borderDash: [10,4],");
                 sw.WriteLine("borderColor: \"rgba(247,70,74,0.4)\",");
                 sw.WriteLine("pointRadius: 2,");
@@ -722,6 +754,7 @@ namespace WXsensorWebPage
                 //IN
                 sw.WriteLine("},{");
                 sw.WriteLine("label: \"In\",");
+               // sw.WriteLine("yAxisID: \"In\",");
                 sw.WriteLine("type: \"line\",");
                 sw.WriteLine("backgroundColor: [\"blue\"],");
                 sw.Write($"data:[");
@@ -802,6 +835,7 @@ namespace WXsensorWebPage
 
                 sw.WriteLine("},{");
                 sw.WriteLine("label: \"CurrentHour\",");
+                //sw.WriteLine("yAxisID: \"y-axis-1\","); 
                 sw.WriteLine("type: 'bar',");
                 sw.WriteLine("backgroundColor: [\"pink\"],");
                 //                sw.WriteLine($"data: [{tHr[9]}, {tHr[10]}, {tHr[11]}, {tHr[12]}, {tHr[13]}, {tHr[14]}, {tHr[15]}, {tHr[16]}, {tHr[17]}, {tHr[18]}, {tHr[19]}, {tHr[20]}, {tHr[21]}, {tHr[22]}, {tHr[23]}, {tHr[0]}, {tHr[1]}, {tHr[2]}, {tHr[3]}, {tHr[4]}, {tHr[5]}, {tHr[6]}, {tHr[7]},{tHr[8]}   ],");
@@ -813,7 +847,9 @@ namespace WXsensorWebPage
                 sw.WriteLine("]");
                 sw.WriteLine(" },");
 
+                // little bit lets you touch a legend item and turn it off
                 sw.WriteLine("options: {");
+                //sw.WriteLine("scales:{ yAxes:[{id: 'Out', position: 'right',}]},");
                 sw.WriteLine("legend: { display: true },");
                 sw.WriteLine("labels: {");
                 sw.WriteLine("filter: function(legendItem, chartData) {");
@@ -836,7 +872,9 @@ namespace WXsensorWebPage
                 sw.WriteLine("yAxes: [{");
                 sw.WriteLine("ticks: {");
                 // sw.WriteLine($"max: {xAxisMax}, ");
-                  sw.WriteLine($"min: 10, ");  
+       //         sw.WriteLine("position: \"right\",");
+      //          sw.WriteLine("id: \"y-axis-1\",");
+        //        sw.WriteLine($"min: {br.BestMin -5}, ");
                 //sw.WriteLine($"min: {float.Parse(textBox6.Text)}, ");
                 //sw.WriteLine($"min: {Math.Round(tMinIn,0)-5}, ");
                 //sw.WriteLine($"min: {Math.Round(float.Parse(bomForecastTempMin), 0) - float.Parse(textBox6.Text) }, ");
