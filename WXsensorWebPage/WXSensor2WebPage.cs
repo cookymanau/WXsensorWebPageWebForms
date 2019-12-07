@@ -1,4 +1,7 @@
-﻿using System;
+﻿//#define MYTEST
+//the MYTEST sets the ticker to 5000mS line 155
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -14,6 +17,8 @@ using System.Timers;
 
 //this program reads data from a sql database and fills the arrays below with that data.  A JS script page is
 // written to the web server area for display on a web page.  This hopefully is stolen from previous work
+
+
 
 namespace WXsensorWebPage
 {
@@ -33,6 +38,8 @@ namespace WXsensorWebPage
         double[] tPool = new double[24] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         double[] tPoolYesterday = new double[24] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         int[] tHr = new int[24] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        double[] BestMax = new double[24] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        double[] BestMin = new double[24] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         struct CurrentReadings
         { //this is to store current sensor reading for display on web page
@@ -97,15 +104,29 @@ namespace WXsensorWebPage
 
         trendingData td = new trendingData(); //WX averaging data
 
+        struct SWSreadings
+        {
+            public DateTime readingDate;
+            public double SFI;
+            public double SSN;
+            public double Ap;
+            public double Kp;
+            public string xRay;
+            public double tIndex;
+            public string Comment;
+        }
+        SWSreadings sws = new SWSreadings();
+
 
 
         static double barMax = 0.0;
         string connectionString = @"Data Source=192.168.1.109\DAWES_SQL2008; Database = WeatherStation; User Id = WeatherStation; Password = Esp32a.b.;";
         static double tInAdjust, tOutAdjust, tRoverAdjust, tBOMadjust; //these are to calibrate the thermometers
         static uint recCnt = 0;
+        static uint readBOMCount = 0;  //used to try and control how often we hit the database for information that only changes once per hour.
         static string now = DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
 
-        DateTime rightNow = DateTime.Now;
+        DateTime rightNow = DateTime.Now;   //we use this a lot to get current time
 
         //this is the constructor
         public WXSensor2WebPage()
@@ -118,10 +139,12 @@ namespace WXsensorWebPage
             hc.WhighWind = double.Parse(txtHighWindCondition.Text);
 
             double tempAvgThisHour = getTempTrendHourly("WXOUT", 1);
- 
             double tempAvgLastHour = getTempTrendHourly("WXOUT", 2);
-              
-           
+
+            //read the estimated mins and maxs from BOM into arrays for plotting
+            // the name of the TABLE, the name of the array declared above and the naem of the field in the table
+            //readBOMMinMaxDataFromDatabase("WXBOMGHILL", BestMax,"ESTBOMMAX");
+       //     readBOMMinMaxDataFromDatabase("WXBOMGHILL", BestMin, "ESTBOMMIN");
 
             StartProgram();
         }
@@ -137,21 +160,50 @@ namespace WXsensorWebPage
         void SetTimer()
         {
             aTimer.Tick += OnTimedEvent;
+
+
+
+#if MYTEST
+            aTimer.Interval = 5000;// for testing only
+#else
             aTimer.Interval = 60000; //miliseconds - fixed at once every minute for the basic tick
+#endif
             aTimer.Enabled = true;
         }
 
-        void OnTimedEvent(Object sender, EventArgs e)
+        void OnTimedEvent(Object sender, EventArgs e)  //everything happens here
         {
-            //creating a new static instance of our form so the next line does not yell at me
-           // WXSensor2WebPage sd = new WXSensor2WebPage();
-
             recCnt += 1;  //the first time through recCnt=1 (0 based)
+            lblRecCnt.Text = recCnt.ToString();  //display on the service page what record we are at
 
-            lblRecCnt.Text = recCnt.ToString();
+            // all about getting the estimated BOM mins and maxes for the day
+            if (readBOMCount < 30 && (rightNow.Hour == 0 || recCnt == 1))  // read it for 30 minutes just in case from midnight to :30am
+            {//do this at the beginning of the cycle and every time the Hour  is 1
+                readBOMMinMaxDataFromDatabase("WXBOMGHILL", BestMax, "ESTBOMMAX");
+                readBOMCount += 1;
+            }
+
+            if (rightNow.Hour == 2 )  // set it back to 0 for thje next day
+            {//do this at the beginning of the cycle and every time the Hour  is 1
+                
+                readBOMCount = 0;
+            }
+
+            if (recCnt == 1) //first thing to do is read these, then the data and fill the arrays
+            {
+                ReadCorrections();
+                writeToLog($"Reading the corrections At Record Number: {recCnt}");
+            }
+
+
             if (recCnt % 1 == 0)  //every tick this would be
             {
-                //fill the today arrays
+
+                //fill the BOM br.BestMax and br.BestMin so we can use them everywhere
+                //readBOMMinMaxDataFromDatabase("WXBOMGHILL", BestMax, "ESTBOMMAX");
+
+                //fill the today arrays pass the table, arrays to fill and any adjustment
+                // the TinAdjust, ToutAdjust ARE NOT collected from here, these just fill the arrays
                 readSensorDataFromDatabase("WXIN", tIn, tInYesterday, sc.TinAdjust);
                 System.Threading.Thread.Sleep(500);
                 readSensorDataFromDatabase("WXOUT", tOut, tOutYesterday, sc.ToutAdjust);
@@ -165,15 +217,15 @@ namespace WXsensorWebPage
 
                 //get the current sensor reading from the database
                 CurrentReadingFromDatabase("WXIN");
-                System.Threading.Thread.Sleep(500);
+                System.Threading.Thread.Sleep(100);
                 CurrentReadingFromDatabase("WXOUT");
-                System.Threading.Thread.Sleep(500);
+                System.Threading.Thread.Sleep(100);
                 CurrentReadingFromDatabase("WXROVER");
-                System.Threading.Thread.Sleep(500);
+                System.Threading.Thread.Sleep(100);
                 CurrentReadingFromDatabase("WXPOOL");
-                System.Threading.Thread.Sleep(500);
+                System.Threading.Thread.Sleep(100);
                 CurrentReadingFromDatabase("WXBOMGHILL");
-                System.Threading.Thread.Sleep(500);
+                System.Threading.Thread.Sleep(100);
                 BOMReadingFromDatabase("WXBOMGHILL");
                 //update the House Conditions
                 hc.ThighTemp = double.Parse(txtHighTempcondition.Text);
@@ -184,16 +236,12 @@ namespace WXsensorWebPage
                 //double tempAvgThisHour = getTempTrendHourly("WXOUT", 1);
                 td.wxOut1 = getTempTrendHourly("WXOUT", 1);
                 td.wxOut2 = getTempTrendHourly("WXOUT", 2);
-                
                 td.wxOut3 = getTempTrendHourly("WXOUT", 3);
-                
+
                 td.trend1 = td.wxOut1 - td.wxOut2;
                 td.trend2 = td.wxOut2 - td.wxOut3;
-
                 td.trend1 = Math.Round(td.trend1, 1);
                 td.trend2 = Math.Round(td.trend2, 1);
-
-
                 writeToHTML();  //write the index.html page
             }
             // this is the Twitter announcement.
@@ -203,18 +251,19 @@ namespace WXsensorWebPage
                 writeToLog($"WebPost To Twitter(every 60 and once at 2), Record Number: {recCnt}");
             }
 
-
-            if ( recCnt == 1)
+            if (recCnt == 1 || recCnt % 60 == 0)
             {
-                ReadCorrections();
-                writeToLog($"Reading the corrections At Record Number: {recCnt}");
+                //status report to log every 30 counts
+                readSWSfromDatabase();
             }
+
 
             if (recCnt %30 == 0)
             {
                 //status report to log every 30 counts
                 writeToLog($" ***Status Report...OK At Record Number: {recCnt} ");
             }
+
 
 
         }//end of the timed function
@@ -275,17 +324,18 @@ namespace WXsensorWebPage
                     //rdngTemp = (double)rdr["AvgTemp"];
                     rdngTemp = (double)rdr["TEMP"];
 
+
                     if (rightNow.Day == rdngTime.Day)
                     {
                         intHour = (int)(rdngTime.Hour);
-                        tArray[intHour] = rdngTemp + tAdjust;    //get todays readings of temperature and put in the array and add the correction
+                        tArray[intHour] = Math.Round(rdngTemp + tAdjust ,1);    //get todays readings of temperature and put in the array and add the correction
                     }
                     else if (rightNow.Day - 1 == rdngTime.Day)
                     {
                         intHour = (int)(rdngTime.Hour);
-                        tArrayYesterday[intHour] = rdngTemp; //yesterdays reading of temp into the array
+                        tArrayYesterday[intHour] = Math.Round(rdngTemp + tAdjust ,1) ; //yesterdays reading of temp into the array
                     }
-                    // this is the attempt to fill the tHr array for the vertical bar
+                    // this is the attempt to fill the tHr array for the vertical bar to the highest numerical value
                     if (rdngTemp > barMax && rightNow.Day == rdngTime.Day)
                     {
                         barMax = rdngTemp;
@@ -298,6 +348,38 @@ namespace WXsensorWebPage
             {
                 writeToLog($"readSensorDataFromDatabase: {ex}");
             }
+        }
+
+        /// <summary>
+        /// Reads the bom minimum maximum data from database.  The SQL query gets the last reading at 9am and uses that for the 
+        /// rest of the run   The time is currently set at 9 but it might be better to be 1
+        /// </summary>
+        /// <param name="table">BOM readings table usuially WXBOMGHILL</param>
+        /// <param name="tArray">The array to write the estMax and Min data to.</param>
+        /// <param name="field">Not used</param>
+        private void readBOMMinMaxDataFromDatabase(string table, double[] tArray,string field)
+        {
+            SqlConnection conn;
+            SqlDataReader rdr = null;
+            double rdngTemp;
+            double tempToUse = 0;
+            DateTime rdngTime;
+            DateTime rightNow = DateTime.Now;
+            int intHour;
+            conn = new SqlConnection(connectionString);  //connectionString is a global ATM
+            SqlCommand getReadings = new SqlCommand($"select top 1 TIME, TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from {table}  where  datepart(hh, TIME) = 0 order by TIME DESC", conn);
+            //                                        select top 1 TIME, TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from WXBOMGHILL where  datepart(hh, TIME) = '9'   order by TIME DESC
+
+                Array.Clear(tArray, 0, 24);
+                conn.Open();
+                rdr = getReadings.ExecuteReader();
+                while (rdr.Read()) { 
+                    // get the results of each column
+                    rdngTime = (DateTime)rdr["TIME"];
+                    br.BestMax = (double)rdr["ESTBOMMAX"];
+                    br.BestMin = (double)rdr["ESTBOMMIN"];
+                }
+                conn.Close();
         }
 
         /// <summary>
@@ -323,20 +405,29 @@ namespace WXsensorWebPage
                     if (table == "WXIN")
                     {
                         cr.cTEMPIn = (double)rdr["TEMP"];
+                        cr.cTEMPIn += sc.TinAdjust;
+                        cr.cTEMPIn = Math.Round(cr.cTEMPIn, 1);
                     }
                     else if (table == "WXOUT")
                     {
                         cr.cTEMPOut = (double)rdr["TEMP"];
+                        cr.cTEMPOut += sc.ToutAdjust;  //add the adjustment
+                        cr.cTEMPOut = Math.Round(cr.cTEMPOut, 1);
+
                         cr.cHumidOut = (double)rdr["HUMID"];
                         cr.cPressureOut = br.BcurrentPress;  //this is because we dont have a working pressure sensor
                     }
                     else if (table == "WXROVER")
                     {
                         cr.cTEMPRover = (double)rdr["TEMP"];
+                        cr.cTEMPRover += sc.TroverAdjust;
+                        cr.cTEMPRover = Math.Round(cr.cTEMPRover, 1);
                     }
                     else if (table == "WXPOOL")
                     {
                         cr.cTEMPPool = (double)rdr["TEMP"];
+                        cr.cTEMPPool += sc.TpoolAdjust;
+                        cr.cTEMPPool = Math.Round(cr.cTEMPPool, 1);
                     }
                     else if (table == "WXBOMGHILL")
                     {
@@ -371,7 +462,8 @@ namespace WXsensorWebPage
             {
 
                 conn = new SqlConnection(connectionString);  //connectionString is a global ATM
-                SqlCommand getReadings = new SqlCommand($"select  top 1 TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from {table} order by TIME DESC", conn);
+                SqlCommand getReadings = new SqlCommand($"select  top 1 TIME, TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from {table}   order by TIME DESC", conn);
+                //select top 1 TIME,TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from WXBOMGHILL where  datepart(hh, TIME) = '9'   order by TIME DESC
                 conn.Open();
                 rdr = getReadings.ExecuteReader();
                 while (rdr.Read())
@@ -380,11 +472,11 @@ namespace WXsensorWebPage
                     br.BcurrentTemp = (double)rdr["TEMP"];
                     br.BcurrentHumid = (double)rdr["HUMID"];
                     br.BcurrentPress = (double)rdr["PRESS"];
-                    br.BestMax = (double)rdr["ESTBOMMAX"];
-                    br.BestMin = (double)rdr["ESTBOMMIN"];
                     br.BWindSpeed = (double)rdr["WINDSPEED"];
                     br.BWindDir = (string)rdr["WINDDIR"];
                     br.Brainfall = (double)rdr["RAINFALL"];
+                    //br.BestMax = (double)rdr["ESTBOMMAX"];  //dont want to do this all the time -once per day by readBOMMInMaxFromdatabase() higher up
+                    //br.BestMin = (double)rdr["ESTBOMMIN"];
                 }
                 conn.Close();
             }
@@ -394,6 +486,39 @@ namespace WXsensorWebPage
                 writeToLog($"Error BOMReadingFromDatabase {ex}");
             }
         }
+
+
+        private void readSWSfromDatabase()
+        {
+            SqlConnection conn;
+            SqlDataReader rdr = null;
+            DateTime rightNow = DateTime.Now;
+   //         try
+   //         {
+                conn = new SqlConnection(connectionString);  //connectionString is a global ATM
+                SqlCommand getReadings = new SqlCommand($"select  top 1 * from SPACEWEATHER order by TIME DESC", conn);
+                conn.Open();
+                rdr = getReadings.ExecuteReader();
+                while (rdr.Read())
+                {
+                    // get the results of each column
+                    sws.SFI = (double)rdr["SFI"];
+                    sws.SSN = (double)rdr["SSN"];
+                    sws.Ap = (double)rdr["Ap"];
+                    sws.Kp = (double)rdr["Kp"];
+                    sws.xRay = (string)rdr["XRAY"];
+                    sws.tIndex = (double)rdr["TINDEX"];
+                }
+                conn.Close();
+   //         }
+
+   //         catch (Exception ex)
+   //         {
+   //             writeToLog($"Error BOM SWS data fromDatabase {ex}");
+   //         }
+        }
+
+
 
 
         /// <summary>
@@ -609,11 +734,11 @@ namespace WXsensorWebPage
                 sw.WriteLine(".button_yellow{background-color: yellow; color: black; font-size: 14px;}");
                 sw.WriteLine(".button_blue{background-color: blue; color: white; font-size: 14px;}");
 
-                sw.WriteLine(".button_blueInfo{background-color: blue; color: white;font-size: 18px; padding: 10px 32px;}");
-                sw.WriteLine(".button_redInfo{background-color: red; color: white;font-size: 18px; padding: 10px 32px;}");
-                sw.WriteLine(".button_greenInfo{background-color: green; color: white;font-size: 18px; padding: 10px 32px;}");
+                sw.WriteLine(".button_blueInfo{background-color: blue; color: white;font-size: 14px; padding: 4px 10px;}");
+                sw.WriteLine(".button_redInfo{background-color: red; color: white;font-size: 14px; padding: 4px 10px;}");
+                sw.WriteLine(".button_greenInfo{background-color: green; color: white;f1ont-size: 14px; padding: 4px 10px;}");
 
-                sw.WriteLine(".button_info{background-color: lightgray; color: blue;font-size: 16px;}");
+                sw.WriteLine(".button_info{background-color: lghtgray; color: blue;font-size: 14px; padding: 4px 10px;}");
 
                 sw.WriteLine(".btn-group button{background-color: #4CAF50; border: 1px solid green; color: white; padding: 10px 24px; cursor:pointer; float:left;}");
                 sw.WriteLine("</style>");
@@ -634,11 +759,7 @@ namespace WXsensorWebPage
                 sw.WriteLine(@"<input type=""button"" style=""float: right;""  onclick=""location.href = 'http://www.bom.gov.au/wa/forecasts/perth.shtml'; "" target=""_blank"" value=""Perth Forecast"" />");
                 sw.WriteLine(@"<input type=""button"" style=""float: right;"" onclick=""location.href = 'http://www.bom.gov.au/products/IDR703.loop.shtml'; "" target=""_blank""  value=""BOM Radar""  />");
                 sw.WriteLine(@"<input type=""button"" style=""float: right;""  onclick=""location.href = 'https://www.windy.com/-Satellite-satellite?satellite,-31.875,115.778,6'; "" target=""_blank""  value=""Windy""  />");
-
-                // sw.WriteLine("<div class=\"row\">");
-                // sw.WriteLine("<div class=\"column\" style=\"background - color:#aaa;\">");
                 sw.WriteLine("<br>");
-
                 sw.WriteLine("</center>");
                 sw.WriteLine($"<table class=t1><tr>");
                 sw.WriteLine($"<td class=button_green>estMax: {br.BestMax} </td><td class=button_white>&nbsp</td>");
@@ -647,12 +768,9 @@ namespace WXsensorWebPage
                 sw.WriteLine($"<td class=button_green>Press: {br.BcurrentPress}</td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_green>Wind km/h {br.BWindSpeed}</td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_green> Direction {br.BWindDir} </td><td class=button_white></td>");
-               // sw.WriteLine("</tr></table>");
 
-               // sw.WriteLine($"<table><tr>");
                 sw.WriteLine($"<td class=button_blue>Rover Temp: {cr.cTEMPRover}</td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_blue>Pool Temp: {cr.cTEMPPool} </td><td class=button_white></td>");
-                //sw.WriteLine($"<td class=button_blue><button onclick = ""location.href = 'http://www.bom.gov.au/products/IDR703.loop.shtml'; "" target = ""_blank""  value = ""BOM Serpentine Radar"" /></td>");
                 sw.WriteLine("</tr></table>");
 
                 List<int> daylight = new List<int> { 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }; //list of the hours of daylight
@@ -663,28 +781,18 @@ namespace WXsensorWebPage
                 {//close house hot and its daylight
                     sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Close House: Its HOT: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
                 }
-                else if (br.BestMax > hc.ThighTemp && td.trend2 >2 ) {
-                    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Close House: Trending Hot, Lock in the cool: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
-                }
-
-                else if (cr.cTEMPOut < cr.cTEMPIn && td.trend2 < 1)
-                {
-                    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Open House: Trending cool, Its cooler outside: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
-                }
-
-
-
-                else if (br.BestMax >= hc.ThighTemp && daylight.Contains(rightNow.Hour) && cr.cTEMPIn > hc.ThighTemp)
+                // add a control for airconditioning on or off - say 27 degrees
+                else if (br.BestMax >= hc.ThighTemp && daylight.Contains(rightNow.Hour) && cr.cTEMPOut > hc.ThighTemp -3 && td.trend1 > 1) 
                 {//air con on its hot in the house, its daylight
-                    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"House HOT AirCon On: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"CloseUp, AirCon On: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                }
+                else if (cr.cTEMPOut < cr.cTEMPIn && td.trend2 < 1)
+                { //trending cool
+                    sw.WriteLine($"<input type=button class=button_greenInfo onclick=location.href = '';  target=_blank value=\"OpenUp: Trending cool, Its cooler outside: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
                 }
                 else if (br.BestMax <= hc.TlowTemp)
                 { //close the house - its cold
                     sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Close House COLD: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
-                }
-                else if (!daylight.Contains(rightNow.Hour) && (cr.cTEMPIn >= hc.TlowTemp) || (cr.cTEMPIn <= hc.ThighTemp)  && cr.cTEMPOut < hc.ThighTemp)
-                {//its night time
-                    sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Its Night and balmy. Open Up House: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
                 }
                 else if (!daylight.Contains(rightNow.Hour) && cr.cTEMPIn < hc.TlowTemp)
                 {//cold light the fire
@@ -693,20 +801,15 @@ namespace WXsensorWebPage
                 else sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Unknown:\" />");
 
                 ////sw.WriteLine($"<input type=button class=button_white onclick=location.href = '';  target=_blank value=\"Out Min: {dailyMin}, OutMax: {dailyMax}, In Min: {dailyInMin} In Max: {dailyInMax} \" />");
-
-
                 //sw.WriteLine("<div id = \"rigref-solar-widget\"><a href=\"https://rigreference.com/solar\" target = \"_blank\" ><img src=\"https://rigreference.com/solar/img/wide\" border=\"0\"></a></div>");
 
-
                 sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Trend Now:Previous {td.trend1} : {td.trend2}\" />");
-
-
-
-
 
                 if (br.BWindSpeed > hc.WhighWind) {
                     sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"High Wind - Lower Yagi:\" />");
                 }
+
+                sw.WriteLine($"<input type=button class=button_info onclick=location.href = '';  target=_blank value=\"SWS SFI:{sws.SFI} SSN:{sws.SSN} Ap:{sws.Ap} Kp:{sws.Kp} Xray:{sws.xRay} T:{sws.tIndex}\" />");
 
 
                 sw.WriteLine("</center>");
@@ -724,28 +827,30 @@ namespace WXsensorWebPage
                 sw.WriteLine("datasets: [{");
 
                 //OUT
-                sw.WriteLine("label: \"Out\",");
-               // sw.WriteLine("yAxisID: \"Out\",");
+                sw.WriteLine("label: 'Out',");
+                sw.WriteLine("id: \"y-axis-0\",");
                 sw.WriteLine("backgroundColor: [\"red\"],");
                 sw.Write($"data:[");
                 for (int i = 0; i < 24; i++){
                     if (tOut[i] > 0){
                         sw.Write($"{tOut[i]},");}
                 }
-                sw.WriteLine( " ],");
+                sw.WriteLine(" ],");
                 sw.WriteLine(@"borderColor: ""#FF3355"",");
                 sw.WriteLine("pointRadius: 2,");
                 sw.WriteLine("fill:false,");
                 sw.WriteLine("type: 'line' ");
                 
-                
+
+
                 //OutYesterday
                 sw.WriteLine("},{");
                 sw.WriteLine("label: \"Yesterday\",");
+                sw.WriteLine("id: \"y-axis-1\",");
                 sw.WriteLine("type: \"line\",");
                 sw.WriteLine("backgroundColor: [\"rgba(247,70,74,0.2)\"],");
-                sw.WriteLine($"data: [ {tOutYesterday[0]}, {tOutYesterday[1]}, {tOutYesterday[2]}, {tOutYesterday[3]}, {tOutYesterday[4]}, {tOutYesterday[5]}, {tOutYesterday[6]}, {tOutYesterday[7]}, {tOutYesterday[8]}, {tOutYesterday[9]}, {tOutYesterday[10]}, {tOutYesterday[11]}, {tOutYesterday[12]}, {tOutYesterday[13]}, {tOutYesterday[14]}, {tOutYesterday[15]}, {tOutYesterday[16]}, {tOutYesterday[17]}, {tOutYesterday[18]}, {tOutYesterday[19]}, {tOutYesterday[20]}, {tOutYesterday[21]}, {tOutYesterday[22]},{tOutYesterday[23]}  ],");
-          //      sw.WriteLine("yAxisID: \"y-axis-1\",");
+                sw.WriteLine($"data: [ {tOutYesterday[0]}, {tOutYesterday[1]}, {tOutYesterday[2]}, {tOutYesterday[3]}, {tOutYesterday[4]}, {tOutYesterday[5]}, {tOutYesterday[6]}, {tOutYesterday[7]}, {tOutYesterday[8]}, {tOutYesterday[9]}, {tOutYesterday[10]}, {tOutYesterday[11]}, {tOutYesterday[12]}, {tOutYesterday[13]}, {tOutYesterday[14]}, {tOutYesterday[15]}, {tOutYesterday[16]}, {tOutYesterday[17]}, {tOutYesterday[18]}, {tOutYesterday[19]}, {tOutYesterday[20]}, {tOutYesterday[21]}, {tOutYesterday[22]},{tOutYesterday[23]}  ], ");
+                //sw.WriteLine("yAxisID: \"y-axis-1\",");
                 sw.WriteLine("borderDash: [10,4],");
                 sw.WriteLine("borderColor: \"rgba(247,70,74,0.4)\",");
                 sw.WriteLine("pointRadius: 2,");
@@ -754,7 +859,6 @@ namespace WXsensorWebPage
                 //IN
                 sw.WriteLine("},{");
                 sw.WriteLine("label: \"In\",");
-               // sw.WriteLine("yAxisID: \"In\",");
                 sw.WriteLine("type: \"line\",");
                 sw.WriteLine("backgroundColor: [\"blue\"],");
                 sw.Write($"data:[");
@@ -807,38 +911,37 @@ namespace WXsensorWebPage
                 sw.WriteLine("borderColor: \"#CCCC00\",");
                 sw.WriteLine("pointRadius: 2,");
                 sw.WriteLine("fill: false");
-
+                //------------------------------------------------vvvvvvvvvvvvvvvvvvvvvvvv
                 //BOM Maximum as a straight horizontal line
                 sw.WriteLine("},{");
                  sw.WriteLine("label: \"eMax\",");
                 sw.WriteLine("type: \"line\",");
                 sw.WriteLine("backgroundColor: [\"rgba(0,0,0,0.4)\"],");
                 sw.WriteLine($"data: [ {br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax},{br.BestMax}   ],");
-                //sw.WriteLine("borderDash: [10,4],");
                 sw.WriteLine("borderColor: \"rgba(0,0,0,0.4)\",");
                 sw.WriteLine("borderWidth: 1,");
                 sw.WriteLine("pointRadius: 1,");
+                sw.WriteLine("lineTension: 0,");
                 sw.WriteLine("fill: false");
+                //--------------------------------------------------------------^^^^^^^^^^^^^^^^^^^
 
-
+                //---vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv-----------------------------------------
                 //BOM Minimum as a straight horizontal line
                 sw.WriteLine("},{");
                 sw.WriteLine("label: \"eMin\",");
                 sw.WriteLine("type: \"line\",");
                 sw.WriteLine("backgroundColor: [\"rgba(0,0,0,0.4)\"],");
                 sw.WriteLine($"data: [ {br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin},{br.BestMin}   ],");
-                //sw.WriteLine("borderDash: [10,4],");
                 sw.WriteLine("borderColor: \"rgba(0,0,0,0.4)\",");
                 sw.WriteLine("borderWidth: 1,");
                 sw.WriteLine("pointRadius: 1,");
                 sw.WriteLine("fill: false");
-
+                //----------^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^-----------------------
                 sw.WriteLine("},{");
                 sw.WriteLine("label: \"CurrentHour\",");
                 //sw.WriteLine("yAxisID: \"y-axis-1\","); 
                 sw.WriteLine("type: 'bar',");
                 sw.WriteLine("backgroundColor: [\"pink\"],");
-                //                sw.WriteLine($"data: [{tHr[9]}, {tHr[10]}, {tHr[11]}, {tHr[12]}, {tHr[13]}, {tHr[14]}, {tHr[15]}, {tHr[16]}, {tHr[17]}, {tHr[18]}, {tHr[19]}, {tHr[20]}, {tHr[21]}, {tHr[22]}, {tHr[23]}, {tHr[0]}, {tHr[1]}, {tHr[2]}, {tHr[3]}, {tHr[4]}, {tHr[5]}, {tHr[6]}, {tHr[7]},{tHr[8]}   ],");
                 sw.WriteLine($"data: [ {tHr[0]}, {tHr[1]}, {tHr[2]}, {tHr[3]}, {tHr[4]}, {tHr[5]}, {tHr[6]}, {tHr[7]}, {tHr[8]}, {tHr[9]}, {tHr[10]}, {tHr[11]}, {tHr[12]}, {tHr[13]}, {tHr[14]}, {tHr[15]}, {tHr[16]}, {tHr[17]}, {tHr[18]}, {tHr[19]}, {tHr[20]}, {tHr[21]}, {tHr[22]},{tHr[23]}  ],");
                 sw.WriteLine("borderColor: \"#C00C00\",");
                 sw.WriteLine("fill: false");
@@ -849,44 +952,44 @@ namespace WXsensorWebPage
 
                 // little bit lets you touch a legend item and turn it off
                 sw.WriteLine("options: {");
-                //sw.WriteLine("scales:{ yAxes:[{id: 'Out', position: 'right',}]},");
+                sw.WriteLine("responsive: true, ");
                 sw.WriteLine("legend: { display: true },");
                 sw.WriteLine("labels: {");
-                sw.WriteLine("filter: function(legendItem, chartData) {");
-                sw.WriteLine("if (legendItem.datasetIndex === 0) {");
-                sw.WriteLine("return false;");
-                sw.WriteLine("}");
-                sw.WriteLine("return true;");
-                sw.WriteLine("}},");
-              //  sw.WriteLine("");
-             //   sw.WriteLine("");
-
-
-
+                sw.WriteLine("      filter: function(legendItem, chartData) {");
+                sw.WriteLine("      if (legendItem.datasetIndex === 0) {");
+                sw.WriteLine("      return false;");
+                sw.WriteLine("             }");
+                sw.WriteLine("   return true;");
+                sw.WriteLine("       }},");
 
                 sw.WriteLine("title: {");
-                sw.WriteLine("display: false,");
-                sw.WriteLine("text: 'Scarp Weather V2'");
-                sw.WriteLine(" },");
-                sw.WriteLine(" scales: {");
-                sw.WriteLine("yAxes: [{");
-                sw.WriteLine("ticks: {");
-                // sw.WriteLine($"max: {xAxisMax}, ");
-       //         sw.WriteLine("position: \"right\",");
-      //          sw.WriteLine("id: \"y-axis-1\",");
-        //        sw.WriteLine($"min: {br.BestMin -5}, ");
-                //sw.WriteLine($"min: {float.Parse(textBox6.Text)}, ");
-                //sw.WriteLine($"min: {Math.Round(tMinIn,0)-5}, ");
-                //sw.WriteLine($"min: {Math.Round(float.Parse(bomForecastTempMin), 0) - float.Parse(textBox6.Text) }, ");
-                sw.WriteLine("stepSize: 2, ");
-                sw.WriteLine("beginAtZero:false");
-                sw.WriteLine(" }");
-                sw.WriteLine(" }],");
-                sw.WriteLine("xAxes: [{ barThickness: 10,}]");
+                sw.WriteLine("    display: false,");
+                sw.WriteLine("    text: 'Scarp Weather V2'");
+                sw.WriteLine("    }, ");
+             //   sw.WriteLine("tooltips: {enabled: true, mode: 'label'} ,");
+           //     sw.WriteLine("hover: {mode: 'nearest', intersect: true } , ");
+                sw.WriteLine("scales: {");
+
+                if (rightNow.Hour > 12)  //swap the y Axes ticks and scale to the rhs of the graph after midday
+                {
+                    sw.WriteLine("     yAxes: [{ id: 'y-axis-0', type: 'linear',position: 'right' , ");
+                }
+                else
+                {
+                    sw.WriteLine("     yAxes: [{ id: 'y-axis-0', type: 'linear',position: 'left' , ");
+                }
+
+                sw.WriteLine("        ticks: { ");
+                sw.WriteLine($"       min: {br.BestMin - 5}, ");
+                sw.WriteLine("        stepSize: 1, ");
+                sw.WriteLine("        beginAtZero:false}");
+                sw.WriteLine("      }],"); //end of yAxes
+                sw.WriteLine("     xAxes: [{ ");
+                sw.WriteLine("         barThickness: 10,}]");
                 sw.WriteLine("");
-                sw.WriteLine("}");
-                sw.WriteLine("}");
-                sw.WriteLine("});");
+                sw.WriteLine("         }");//end of xAxes
+                sw.WriteLine("      }"); //end of scales
+                sw.WriteLine(" });"); //end of options
 
                 sw.WriteLine("canvas.onclick = function (evt) {");
                 sw.WriteLine("var points = line-chart.getPointsAtEvent(evt);");
@@ -895,10 +998,6 @@ namespace WXsensorWebPage
 
 
                 sw.WriteLine("  </script>");
-                //sw.WriteLine("  </div>");
-                //sw.WriteLine("</div>");
-
-                // sw.WriteLine("<center>");
                 sw.WriteLine(@"<span style=""font-family:Arial;font-size:12px;>""");
                 sw.WriteLine($"<p>Scarp Weather - Readings from Lesmurdie {fullDate}");
                 sw.WriteLine("</center>");
