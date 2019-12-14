@@ -1,6 +1,10 @@
 ﻿//#define MYTEST
 //the MYTEST sets the ticker to 5000mS line 155
 
+#define VERBOSELOGGING
+// optional status stuff to the log
+
+
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -132,7 +136,7 @@ namespace WXsensorWebPage
         public WXSensor2WebPage()
         {
             InitializeComponent();
-            writeToLog("Program start");
+            writeToLog("***** Program start *************");
             br.BcurrentPress = 999.9; //just in case
             hc.ThighTemp = double.Parse(txtHighTempcondition.Text);
             hc.TlowTemp = double.Parse(txtLowTempCondition.Text);
@@ -151,6 +155,10 @@ namespace WXsensorWebPage
 
         private void btnExit_Click(object sender, EventArgs e)
         {
+#if VERBOSELOGGING
+            writeToLog($"********Exit the program**********");
+            writeToLog("---------------------------------------------------");
+#endif
             Application.Exit();
         }
 
@@ -160,45 +168,53 @@ namespace WXsensorWebPage
         void SetTimer()
         {
             aTimer.Tick += OnTimedEvent;
-
-
-
 #if MYTEST
             aTimer.Interval = 5000;// for testing only
 #else
             aTimer.Interval = 60000; //miliseconds - fixed at once every minute for the basic tick
 #endif
             aTimer.Enabled = true;
-        }
+        } //end of function
 
+        /// <summary>
+        /// Called when [timed event].  This is where the hard work is done.
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         void OnTimedEvent(Object sender, EventArgs e)  //everything happens here
         {
+            DateTime tickerTime = DateTime.Now;
             recCnt += 1;  //the first time through recCnt=1 (0 based)
             lblRecCnt.Text = recCnt.ToString();  //display on the service page what record we are at
 
             // all about getting the estimated BOM mins and maxes for the day
-            if (readBOMCount < 30 && (rightNow.Hour == 0 || recCnt == 1))  // read it for 30 minutes just in case from midnight to :30am
+            if (readBOMCount < 30 && (tickerTime.Hour % 6 == 0 || recCnt == 1))  // read it for 30 minutes just in case from midnight to :30am
             {//do this at the beginning of the cycle and every time the Hour  is 1
                 readBOMMinMaxDataFromDatabase("WXBOMGHILL", BestMax, "ESTBOMMAX");
                 readBOMCount += 1;
             }
 
-            if (rightNow.Hour == 2 )  // set it back to 0 for thje next day
+            if (tickerTime.Hour == 2 )  // set it back to 0 for thje next day
             {//do this at the beginning of the cycle and every time the Hour  is 1
                 
                 readBOMCount = 0;
+                #if VERBOSELOGGING
+  //                  writeToLog("tickerTime.Hour ==2 and putting readBOMCount to 0");
+                #endif
             }
 
             if (recCnt == 1) //first thing to do is read these, then the data and fill the arrays
             {
                 ReadCorrections();
+#if VERBOSELOGGING
                 writeToLog($"Reading the corrections At Record Number: {recCnt}");
+#endif
+
             }
 
 
-            if (recCnt % 1 == 0)  //every tick this would be
+            if (recCnt % 1 == 0)  //every tick, ie once every tick - every 60 seconds
             {
-
                 //fill the BOM br.BestMax and br.BestMin so we can use them everywhere
                 //readBOMMinMaxDataFromDatabase("WXBOMGHILL", BestMax, "ESTBOMMAX");
 
@@ -245,23 +261,31 @@ namespace WXsensorWebPage
                 writeToHTML();  //write the index.html page
             }
             // this is the Twitter announcement.
-            if ((recCnt % 90 == 0 || recCnt == 2) && chkTweet.Checked) //every 90 mins and just after startup  IFFT have changed their rules to 26 tweets per day
+            if ((recCnt % 120 == 0 || recCnt == 2) && chkTweet.Checked) //every 90 mins and just after startup  IFFT have changed their rules to 26 tweets per day
             {
                 webPOSTtoScarpWeather(cr.cTEMPIn, cr.cHumidOut, cr.cPressureOut, cr.cTEMPOut);  //send it to Scarpweather
-                writeToLog($"WebPost To Twitter(every 60 and once at 2), Record Number: {recCnt}");
+#if VERBOSELOGGING
+                writeToLog($"Twitter WebPost : Record Number: {recCnt}");
+
+#endif
+
             }
 
             if (recCnt == 1 || recCnt % 60 == 0)
             {
                 //status report to log every 30 counts
                 readSWSfromDatabase();
+#if VERBOSELOGGING
+                writeToLog($"Reading SWS data fromdatabase recCnt: {recCnt}");
+#endif
+
             }
 
 
-            if (recCnt %30 == 0)
+            if (recCnt % 60 == 0)  // evey 60 minutes
             {
                 //status report to log every 30 counts
-                writeToLog($" ***Status Report...OK At Record Number: {recCnt} ");
+                writeToLog($" -----Status Report...OK At Record Number: {recCnt} ");
             }
 
 
@@ -296,7 +320,7 @@ namespace WXsensorWebPage
      //     SqlCommand getReadings = new SqlCommand($"select TIME, ROUND(AvgValue, 1) as AvgTemp from(select TIME = dateadd(hh, datepart(hh, TIME), cast(CAST(TIME as date) as datetime)), AvgValue = AVG(TEMP)from {table} group by dateadd(hh, datepart(hh, TIME), cast(CAST(TIME as date) as datetime)))a order by TIME DESC", conn);
 
             //this bit courtesy of stackoverflow - how to do these sort of long queries in C# formatting
-            // get the reading from the database as closes as possible to the hour - a few seconds either side
+            // get the reading from the database as closes as possible to the top of hour - a few seconds either side
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
             sb.AppendLine($"select * from {table} yt join( ");
             sb.AppendLine(@"  select  min(TIME) as dt ");
@@ -328,7 +352,15 @@ namespace WXsensorWebPage
                     if (rightNow.Day == rdngTime.Day)
                     {
                         intHour = (int)(rdngTime.Hour);
-                        tArray[intHour] = Math.Round(rdngTemp + tAdjust ,1);    //get todays readings of temperature and put in the array and add the correction
+
+                      //  if (Math.Round(rdngTemp + tAdjust, 1) != 0)
+                       // {
+                            tArray[intHour] = Math.Round(rdngTemp + tAdjust, 1);    //get todays readings of temperature and put in the array and add the correction
+                       // }
+                      //  else { tArray[intHour] = 14; }
+
+
+
                     }
                     else if (rightNow.Day - 1 == rdngTime.Day)
                     {
@@ -346,7 +378,7 @@ namespace WXsensorWebPage
                 conn.Close();
             } catch(Exception ex)
             {
-                writeToLog($"readSensorDataFromDatabase: {ex}");
+                writeToLog($"ERROR - readSensorDataFromDatabase: {ex}");
             }
         }
 
@@ -437,7 +469,7 @@ namespace WXsensorWebPage
                 conn.Close();
             } catch (Exception ex)
             {
-                writeToLog($" CurrentReadingFromDatabase: {ex}");
+                writeToLog($"ERROR-CurrentReadingFromDatabase: {ex}");
             }
         }
 
@@ -483,7 +515,7 @@ namespace WXsensorWebPage
 
             catch (Exception ex)
             {
-                writeToLog($"Error BOMReadingFromDatabase {ex}");
+                writeToLog($"ERROR-BOMReadingFromDatabase {ex}");
             }
         }
 
@@ -493,8 +525,8 @@ namespace WXsensorWebPage
             SqlConnection conn;
             SqlDataReader rdr = null;
             DateTime rightNow = DateTime.Now;
-   //         try
-   //         {
+            try
+            {
                 conn = new SqlConnection(connectionString);  //connectionString is a global ATM
                 SqlCommand getReadings = new SqlCommand($"select  top 1 * from SPACEWEATHER order by TIME DESC", conn);
                 conn.Open();
@@ -510,13 +542,13 @@ namespace WXsensorWebPage
                     sws.tIndex = (double)rdr["TINDEX"];
                 }
                 conn.Close();
-   //         }
+            }
 
-   //         catch (Exception ex)
-   //         {
-   //             writeToLog($"Error BOM SWS data fromDatabase {ex}");
-   //         }
-        }
+            catch (Exception ex)
+            {
+                writeToLog($"ERROR- BOM SWS data fromDatabase {ex}");
+            }
+        }//end of function
 
 
 
@@ -534,7 +566,10 @@ namespace WXsensorWebPage
             CorrectionsFromDatabase("SENSORURL", "WXROVER"); //get the corrections
             CorrectionsFromDatabase("SENSORURL", "WXPOOL"); //get the corrections
             CorrectionsFromDatabase("SENSORURL", "WXBOM"); //get the corrections
-            
+#if VERBOSELOGGING
+            writeToLog($"Reading Temperature corrections ");
+#endif
+
         }
 
 
@@ -606,11 +641,16 @@ namespace WXsensorWebPage
                     else if (sens == "WXBOM"){
                         sc.TbomAdjust = (float)rdr["TEMP_CORRECTION"];
                     }
+                    else if (sens == "WXPOOL")
+                    {
+                        sc.TpoolAdjust = (float)rdr["TEMP_CORRECTION"];
+                    }
+
                 }
                 conn.Close();
             }
             catch (Exception ex){
-                writeToLog($"Error reading corrections from the database {ex}");}
+                writeToLog($"ERROR - reading corrections from the database {ex}");}
 
         }// end of CorrectionsFromDatabase
 
@@ -618,6 +658,10 @@ namespace WXsensorWebPage
         {
             ReadCorrections();
             MessageBox.Show("Re Read Corrections. Wait one minute.");
+#if VERBOSELOGGING
+            writeToLog($"Manual read of correction data from database - button pressed");
+#endif
+
         }
 
 
@@ -677,8 +721,9 @@ namespace WXsensorWebPage
 
                 using (StreamWriter sw = new StreamWriter(filePath, append: true))  //using controls low-level resource useage
                 {
-                    string now = DateTime.Now.ToString("h:mm:ss tt");
-                    sw.WriteLine($"Log Time: {now} : {mesg}"); //thats String Interpolation -the $ and curly brackets make it easy!
+                string nowDate = DateTime.Now.ToString("d");
+                string now = DateTime.Now.ToString("h:mm:ss tt");
+                    sw.WriteLine($"Log Time: {nowDate} : {now} : {mesg}"); //thats String Interpolation -the $ and curly brackets make it easy!
                     sw.Close();
                 }
             }
@@ -766,6 +811,7 @@ namespace WXsensorWebPage
                 sw.WriteLine($"<td class=button_green>estMin: {br.BestMin}</td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_green>Temp: {br.BcurrentTemp}</td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_green>Press: {br.BcurrentPress}</td><td class=button_white></td>");
+                sw.WriteLine($"<td class=button_green>Humid: {br.BcurrentHumid}</td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_green>Wind km/h {br.BWindSpeed}</td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_green> Direction {br.BWindDir} </td><td class=button_white></td>");
 
@@ -834,6 +880,11 @@ namespace WXsensorWebPage
                 for (int i = 0; i < 24; i++){
                     if (tOut[i] > 0){
                         sw.Write($"{tOut[i]},");}
+                    else if (tOut[i] == 0)
+                    {
+                        sw.Write($" ,");
+                    }
+
                 }
                 sw.WriteLine(" ],");
                 sw.WriteLine(@"borderColor: ""#FF3355"",");
@@ -865,6 +916,11 @@ namespace WXsensorWebPage
                 for (int i = 0; i < 24; i++){
                     if (tIn[i] > 0){
                         sw.Write($"{tIn[i]},");}
+                    else if (tIn[i] == 0)
+                    {
+                        sw.Write($" ,");
+                    }
+
                 }
                 sw.WriteLine(" ],");
                 sw.WriteLine("borderColor: \"#3339FF\",");
@@ -892,6 +948,9 @@ namespace WXsensorWebPage
                 for (int i = 0; i < 24; i++) {
                     if (tBOM[i] > 0) {
                         sw.Write($"{tBOM[i]},"); }
+                    else if (tBOM[i] == 0 ){
+                       sw.Write($" ,");
+                    }
                 }
                 sw.WriteLine(" ],");
                 sw.WriteLine("borderColor: \"#42FF33\",");
@@ -906,6 +965,10 @@ namespace WXsensorWebPage
                 for (int i = 0; i < 24; i++) {
                     if (tRover[i] > 0) {
                         sw.Write($"{tRover[i]},");}
+                    else if (tRover[i] == 0)
+                    {
+                        sw.Write($" ,");
+                    }
                 }
                 sw.WriteLine(" ],");
                 sw.WriteLine("borderColor: \"#CCCC00\",");
@@ -970,7 +1033,10 @@ namespace WXsensorWebPage
            //     sw.WriteLine("hover: {mode: 'nearest', intersect: true } , ");
                 sw.WriteLine("scales: {");
 
-                if (rightNow.Hour > 12)  //swap the y Axes ticks and scale to the rhs of the graph after midday
+
+
+                //if (rightNow.Hour > 12)  //swap the y Axes ticks and scale to the rhs of the graph after midday
+                if (DateTime.Now.Hour > 12)  //swap the y Axes ticks and scale to the rhs of the graph after midday
                 {
                     sw.WriteLine("     yAxes: [{ id: 'y-axis-0', type: 'linear',position: 'right' , ");
                 }
