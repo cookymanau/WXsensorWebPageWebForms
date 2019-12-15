@@ -170,8 +170,12 @@ namespace WXsensorWebPage
             aTimer.Tick += OnTimedEvent;
 #if MYTEST
             aTimer.Interval = 5000;// for testing only
+            chkTweet.Checked = false;
+            txtWebUpdateCycle.Text = "30";
 #else
             aTimer.Interval = 60000; //miliseconds - fixed at once every minute for the basic tick
+            chkTweet.Checked = true;
+            txtWebUpdateCycle.Text = "120";
 #endif
             aTimer.Enabled = true;
         } //end of function
@@ -343,26 +347,23 @@ namespace WXsensorWebPage
                 while (rdr.Read())
                 {
                     // get the results of each column
-                    rdngTime = (DateTime)rdr["TIME"];
+                    rdngTime = (DateTime)rdr["TIME"]; //this is the ime of thereading from the database
                     
                     //rdngTemp = (double)rdr["AvgTemp"];
                     rdngTemp = (double)rdr["TEMP"];
 
 
-                    if (rightNow.Day == rdngTime.Day)
+                    //if (rightNow.Day == rdngTime.Day)
+                    if (DateTime.Now.Day == rdngTime.Day) //this ensures we get TODAYS readings  DateTime.Now.Day is todays date
                     {
-                        intHour = (int)(rdngTime.Hour);
+                        intHour = (int)(rdngTime.Hour); //this is the hour of the reading returned by the SQL above
 
-                      //  if (Math.Round(rdngTemp + tAdjust, 1) != 0)
-                       // {
+                        if (intHour <= DateTime.Now.Hour ) // for some reason the end of the arrays were filling up. This stops that
+                        {
                             tArray[intHour] = Math.Round(rdngTemp + tAdjust, 1);    //get todays readings of temperature and put in the array and add the correction
-                       // }
-                      //  else { tArray[intHour] = 14; }
-
-
-
+                        }
                     }
-                    else if (rightNow.Day - 1 == rdngTime.Day)
+                    else if (rightNow.Day - 1 == rdngTime.Day)  //fills yesterdays arrays
                     {
                         intHour = (int)(rdngTime.Hour);
                         tArrayYesterday[intHour] = Math.Round(rdngTemp + tAdjust ,1) ; //yesterdays reading of temp into the array
@@ -663,6 +664,8 @@ namespace WXsensorWebPage
 #endif
 
         }
+
+ 
 
 
 
