@@ -124,7 +124,7 @@ namespace WXsensorWebPage
 
 
         static double barMax = 0.0;
-        string connectionString = @"Data Source=192.168.1.109\DAWES_SQL2008; Database = WeatherStation; User Id = WeatherStation; Password = Esp32a.b.;";
+        string connectionString = @"Data Source=192.168.1.16\DAWES_SQL2008; Database = WeatherStation; User Id = WeatherStation; Password = Esp32a.b.;";
         static double tInAdjust, tOutAdjust, tRoverAdjust, tBOMadjust; //these are to calibrate the thermometers
         static uint recCnt = 0;
         static uint readBOMCount = 0;  //used to try and control how often we hit the database for information that only changes once per hour.
@@ -320,13 +320,14 @@ namespace WXsensorWebPage
             DateTime rdngTime;
             DateTime rightNow = DateTime.Now;
             int intHour;
+            int counter = 0;
             conn = new SqlConnection(connectionString);  //connectionString is a global ATM
      //     SqlCommand getReadings = new SqlCommand($"select TIME, ROUND(AvgValue, 1) as AvgTemp from(select TIME = dateadd(hh, datepart(hh, TIME), cast(CAST(TIME as date) as datetime)), AvgValue = AVG(TEMP)from {table} group by dateadd(hh, datepart(hh, TIME), cast(CAST(TIME as date) as datetime)))a order by TIME DESC", conn);
 
             //this bit courtesy of stackoverflow - how to do these sort of long queries in C# formatting
             // get the reading from the database as closes as possible to the top of hour - a few seconds either side
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
-            sb.AppendLine($"select * from {table} yt join( ");
+            sb.AppendLine($"select top 72 * from {table} yt join( ");
             sb.AppendLine(@"  select  min(TIME) as dt ");
             sb.AppendLine($" from {table} ");
             sb.AppendLine(@" where datediff(day, TIME, getdate()) <= 60  ");
@@ -344,6 +345,8 @@ namespace WXsensorWebPage
                 rdr = getReadings.ExecuteReader();
                 lblNowTime.Text = rightNow.TimeOfDay.ToString();
                 Array.Clear(tArray, 0, 24);
+                Array.Clear(tArrayYesterday, 0, 24);
+
                 while (rdr.Read())
                 {
                     // get the results of each column
@@ -353,14 +356,15 @@ namespace WXsensorWebPage
                     rdngTemp = (double)rdr["TEMP"];
 
 
-                    //if (rightNow.Day == rdngTime.Day)
-                    if (DateTime.Now.Day == rdngTime.Day) //this ensures we get TODAYS readings  DateTime.Now.Day is todays date
+                    if (rightNow.Day == rdngTime.Day)
+//                    if (DateTime.Now.Day == rdngTime.Day) //this ensures we get TODAYS readings  DateTime.Now.Day is todays date
                     {
                         intHour = (int)(rdngTime.Hour); //this is the hour of the reading returned by the SQL above
 
                         if (intHour <= DateTime.Now.Hour ) // for some reason the end of the arrays were filling up. This stops that
                         {
                             tArray[intHour] = Math.Round(rdngTemp + tAdjust, 1);    //get todays readings of temperature and put in the array and add the correction
+                            counter += 1;
                         }
                     }
                     else if (rightNow.Day - 1 == rdngTime.Day)  //fills yesterdays arrays
