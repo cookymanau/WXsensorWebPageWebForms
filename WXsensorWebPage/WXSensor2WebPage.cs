@@ -57,6 +57,23 @@ namespace WXsensorWebPage
         }
         CurrentReadings cr = new CurrentReadings();
 
+        struct MaxMinTemps
+        {
+            public double wxOutMax;
+            public double wxOutMin;
+            public string wxOutMaxHour;
+            public string wxOutMinHour;
+            public double wxInMax;
+            public double wxInMin;
+            public string wxInMaxHour;
+            public string wxInMinHour;
+            public double wxRoverMax;
+            public double wxRoverMin;
+            public double wxPoolMax;
+            public double wxPoolMin;
+        }
+        MaxMinTemps mm = new MaxMinTemps();
+
         struct BOMReadings
         { //this is to store current sensor reading for display on web page
             public double BestMax;
@@ -105,7 +122,6 @@ namespace WXsensorWebPage
             public double wxIn2;
             public double wxIn3;
         }
-
         trendingData td = new trendingData(); //WX averaging data
 
         struct SWSreadings
@@ -262,6 +278,15 @@ namespace WXsensorWebPage
                 td.trend2 = td.wxOut2 - td.wxOut3;
                 td.trend1 = Math.Round(td.trend1, 1);
                 td.trend2 = Math.Round(td.trend2, 1);
+
+                //GetMaxMinReadingFromDatabase("WXIN");
+                //GetMaxMinReadingFromDatabase("WXOUT");
+                GetMaxMinTempFromDatabase("WXOUT", "MAX");
+                GetMaxMinTempFromDatabase("WXOUT", "MIN");
+                GetMaxMinTempFromDatabase("WXIN", "MIN");
+                GetMaxMinTempFromDatabase("WXIN", "MAX");
+
+
                 writeToHTML();  //write the index.html page
             }
             // this is the Twitter announcement.
@@ -477,6 +502,165 @@ namespace WXsensorWebPage
                 writeToLog($"ERROR-CurrentReadingFromDatabase: {ex}");
             }
         }
+
+
+
+        // -------------vvvvvvvvvvvvvv  Max and Min from database vvvvvvvvvvvvvv------------
+        private void GetMaxMinTempFromDatabase(string table,string minmax )
+        {
+            SqlConnection conn;
+            SqlDataReader rdr = null;
+            DateTime rightNow = DateTime.Now;
+           System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            try
+            { // get the min and max temps and their respective times
+                sb.AppendLine($"select TOP 1 {minmax}(TEMP) as [Temp] ");
+                sb.AppendLine($", TIME as [Time] ");
+                sb.AppendLine($",RIGHT('0' + CAST(DATEPART(hour, TIME) as varchar(2)), 2) + ':' + RIGHT('0' + CAST(DATEPART(minute, TIME) as varchar(2)), 2) as [Hour] ");
+                sb.AppendLine($" from {table} where convert(date, TIME) = convert(date, getdate()) ");
+
+                if (minmax == "MAX")
+                {
+                    sb.AppendLine($" group by TEMP,TIME order by TEMP DESC "); } //getting a min and max requires slightly different sorting
+                else if (minmax == "MIN")
+                {
+                    sb.AppendLine($" group by TEMP,TIME order by TEMP ASC "); }
+
+                string getMaxTempTime = sb.ToString();  //make a big single string of the query...and execute it
+
+                conn = new SqlConnection(connectionString);  //connectionString is a global ATM
+                SqlCommand getReadings = new SqlCommand(getMaxTempTime, conn); // get todays Max
+                conn.Open();
+                rdr = getReadings.ExecuteReader();
+                while (rdr.Read())
+                {
+                    if (table == "WXIN" && minmax == "MAX")
+                    {
+                        mm.wxInMax = (double)rdr["Temp"];
+                        mm.wxInMax += sc.TinAdjust;
+                        mm.wxInMax = Math.Round(mm.wxInMax, 1);
+                        mm.wxInMaxHour = rdr["Hour"].ToString();
+                    }
+                    if (table == "WXIN" && minmax == "MIN")
+                    {
+                        mm.wxInMin = (double)rdr["Temp"];
+                        mm.wxInMin += sc.TinAdjust;
+                        mm.wxInMin = Math.Round(mm.wxInMin, 1);
+                        mm.wxInMinHour = rdr["Hour"].ToString();
+                    }
+                    else if (table == "WXOUT" && minmax == "MAX")
+                    {
+                        mm.wxOutMax = (double)rdr["Temp"];
+                        mm.wxOutMax += sc.ToutAdjust;  //add the adjustment
+                        mm.wxOutMax = Math.Round(mm.wxOutMax, 1);
+                        mm.wxOutMaxHour = rdr["Hour"].ToString();
+                    }
+                    else if (table == "WXOUT" && minmax == "MIN")
+                    {
+                        mm.wxOutMin = (double)rdr["Temp"];
+                        mm.wxOutMin += sc.ToutAdjust;  //add the adjustment
+                        mm.wxOutMin = Math.Round(mm.wxOutMin, 1);
+                        mm.wxOutMinHour = rdr["Hour"].ToString();
+                    }
+                }
+                conn.Close();
+            }
+            catch (Exception ex)
+            {
+                writeToLog($"ERROR-MaxReadingFromDatabase: {ex}");
+            }
+        }
+
+        //---------------------^^^^^^^^^^^^^^^^^ end of function ^^^^^^^^^^^^^^-----------
+
+
+
+
+
+
+
+        // --------------- Get Max Temps
+        private void GetMaxMinReadingFromDatabase(string table)
+        {
+            SqlConnection conn;
+            SqlDataReader rdr = null;
+            DateTime rightNow = DateTime.Now;
+            try
+            {
+                conn = new SqlConnection(connectionString);  //connectionString is a global ATM
+                SqlCommand getReadings = new SqlCommand($"select max(TEMP)as [MaxTemp],min(TEMP)as [MinTemp] from {table} where convert(date,TIME) = convert(date,getdate())", conn); // get todays Max
+                conn.Open();
+                rdr = getReadings.ExecuteReader();
+                while (rdr.Read())
+                {
+                    if (table == "WXIN")
+                    {
+                        mm.wxInMax = (double)rdr["MaxTemp"];
+                        mm.wxInMax += sc.TinAdjust;
+                        mm.wxInMax = Math.Round(mm.wxInMax, 1);
+                        mm.wxInMin = (double)rdr["MinTemp"];
+                        mm.wxInMin += sc.TinAdjust;
+                        mm.wxInMin = Math.Round(mm.wxInMin, 1);
+                    }
+                    else if (table == "WXOUT")
+                    {
+                        mm.wxOutMax = (double)rdr["MaxTemp"];
+                        mm.wxOutMax += sc.ToutAdjust;  //add the adjustment
+                        mm.wxOutMax = Math.Round(mm.wxOutMax, 1);
+                        mm.wxOutMin = (double)rdr["MinTemp"];
+                        mm.wxOutMin += sc.ToutAdjust;  //add the adjustment
+                        mm.wxOutMin = Math.Round(mm.wxOutMin, 1);
+                    }
+                    else if (table == "WXROVER")
+                    {
+                        mm.wxRoverMax = (double)rdr["MaxTemp"];
+                        mm.wxRoverMax += sc.TroverAdjust;
+                        mm.wxRoverMax = Math.Round(mm.wxRoverMax, 1);
+                        mm.wxRoverMin = (double)rdr["MinTemp"];
+                        mm.wxRoverMin += sc.TroverAdjust;
+                        mm.wxRoverMin = Math.Round(mm.wxRoverMin, 1);
+                    }
+                    else if (table == "WXPOOL")
+                    {
+                        mm.wxPoolMax = (double)rdr["MaxTemp"];
+                        mm.wxPoolMax += sc.TpoolAdjust;
+                        mm.wxPoolMax = Math.Round(mm.wxPoolMax, 1);
+                        mm.wxPoolMin = (double)rdr["MinTemp"];
+                        mm.wxPoolMin += sc.TpoolAdjust;
+                        mm.wxPoolMin = Math.Round(mm.wxPoolMin, 1);
+                    }
+                }
+                conn.Close();
+            }
+            catch (Exception ex)
+            {
+                writeToLog($"ERROR-MaxReadingFromDatabase: {ex}");
+            }
+        }
+
+//---------------------^^^^^^^^^^^^^^^^^ end of function ^^^^^^^^^^^^^^-----------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
         private void BOMReadingFromDatabase(string table)
@@ -790,7 +974,9 @@ namespace WXsensorWebPage
                 sw.WriteLine(".button_redInfo{background-color: red; color: white;font-size: 14px; padding: 4px 10px;}");
                 sw.WriteLine(".button_greenInfo{background-color: green; color: white;f1ont-size: 14px; padding: 4px 10px;}");
 
-                sw.WriteLine(".button_info{background-color: lghtgray; color: blue;font-size: 14px; padding: 4px 10px;}");
+                sw.WriteLine(".button_info{background-color: gray; color: blue;font-size: 14px; padding: 4px 10px;}");
+                sw.WriteLine(".button_infoIn{background-color: white; color: blue;font-size: 14px; padding: 4px 10px;}");
+                sw.WriteLine(".button_infoOut{background-color: white; color: red;font-size: 14px; padding: 4px 10px;}");
 
                 sw.WriteLine(".btn-group button{background-color: #4CAF50; border: 1px solid green; color: white; padding: 10px 24px; cursor:pointer; float:left;}");
                 sw.WriteLine("</style>");
@@ -841,7 +1027,7 @@ namespace WXsensorWebPage
                 }
                 else if (cr.cTEMPOut < cr.cTEMPIn && td.trend2 < 1)
                 { //trending cool
-                    sw.WriteLine($"<input type=button class=button_greenInfo onclick=location.href = '';  target=_blank value=\"OpenUp: Trending cool, Its cooler outside: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                    sw.WriteLine($"<input type=button class=button_greenInfo onclick=location.href = '';  target=_blank value=\"OpenUp:Its cooler outside: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
                 }
                 else if (br.BestMax <= hc.TlowTemp)
                 { //close the house - its cold
@@ -863,6 +1049,8 @@ namespace WXsensorWebPage
                 }
 
                 sw.WriteLine($"<input type=button class=button_info onclick=location.href = '';  target=_blank value=\"SWS SFI:{sws.SFI} SSN:{sws.SSN} Ap:{sws.Ap} Kp:{sws.Kp} Xray:{sws.xRay} T:{sws.tIndex}\" />");
+                sw.WriteLine($"<input type=button class=button_infoIn onclick=location.href = '';  target=_blank value=\"InMin:{mm.wxInMin} @ {mm.wxInMinHour} InMax:{mm.wxInMax} @ {mm.wxInMaxHour}\" />");
+                sw.WriteLine($"<input type=button class=button_infoOut onclick=location.href = '';  target=_blank value=\"OutMin:{mm.wxOutMin} @ {mm.wxOutMinHour} OutMax:{mm.wxOutMax} @ {mm.wxOutMaxHour}\" />");
 
 
                 sw.WriteLine("</center>");
