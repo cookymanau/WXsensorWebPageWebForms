@@ -1,4 +1,4 @@
-﻿#define MYTEST
+﻿//#define MYTEST
 //the MYTEST sets the ticker to 5000mS line 155
 
 #define VERBOSELOGGING
@@ -53,6 +53,15 @@ namespace WXsensorWebPage
         double[] tPoolMax = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         double[] tRoverMin = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         double[] tRoverMax = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+        double[] tInMinLM = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        double[] tInMaxLM = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        double[] tOutMinLM = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        double[] tOutMaxLM = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        double[] tPoolMinLM = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        double[] tPoolMaxLM = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        double[] tRoverMinLM = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        double[] tRoverMaxLM = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
         struct CurrentReadings
         { //this is to store current sensor reading for display on web page
@@ -146,10 +155,15 @@ namespace WXsensorWebPage
         }
         SWSreadings sws = new SWSreadings();
 
+        struct sensorStatus
+        {
+            public bool Ib, Ob, Pb, Rb;
+        }
+        sensorStatus ss = new sensorStatus();
 
 
         static double barMax = 0.0;
-        string connectionString = @"Data Source=192.168.1.16\DAWES_SQL2008; Database = WeatherStation; User Id = WeatherStation; Password = Esp32a.b.;";
+        string connectionString = @"Data Source=192.168.1.15\DAWES_SQL2008; Database = WeatherStation; User Id = WeatherStation; Password = Esp32a.b.;";
         static double tInAdjust, tOutAdjust, tRoverAdjust, tBOMadjust; //these are to calibrate the thermometers
         static uint recCnt = 0;
         static uint readBOMCount = 0;  //used to try and control how often we hit the database for information that only changes once per hour.
@@ -176,7 +190,7 @@ namespace WXsensorWebPage
        //     readBOMMinMaxDataFromDatabase("WXBOMGHILL", BestMin, "ESTBOMMIN");
 
             StartProgram();
-        }
+        } //end of constructor
 
         private void btnExit_Click(object sender, EventArgs e)
         {
@@ -238,9 +252,6 @@ namespace WXsensorWebPage
 #if VERBOSELOGGING
                 writeToLog($"Reading the corrections At Record Number: {recCnt}");
 #endif
-
-                
-
             }
 
 
@@ -290,19 +301,17 @@ namespace WXsensorWebPage
                 td.trend1 = Math.Round(td.trend1, 1);
                 td.trend2 = Math.Round(td.trend2, 1);
 
-                //GetMaxMinReadingFromDatabase("WXIN");
-                //GetMaxMinReadingFromDatabase("WXOUT");
+                // these 4 calls to the GetMaxMin... populate the minmax arrays from the database
+                //and display the data on the buttons on index.html
                 GetMaxMinTempFromDatabase("WXOUT", "MAX");
                 GetMaxMinTempFromDatabase("WXOUT", "MIN");
                 GetMaxMinTempFromDatabase("WXIN", "MIN");
                 GetMaxMinTempFromDatabase("WXIN", "MAX");
 
-                //lets fill the min max arrays
-                prepareMinMaxArrays("WXOUT");
-                prepareMinMaxArrays("WXIN");
-                prepareMinMaxArrays("WXPOOL");
-                prepareMinMaxArrays("WXROVER");
+                //update the sensor readings are they alive
+                TimeLastReading();
 
+                // this is the main page index.html
                 writeToHTML();  //write the index.html page
             }
             // this is the Twitter announcement.
@@ -318,14 +327,21 @@ namespace WXsensorWebPage
 
             if (recCnt == 1 || recCnt % 60 == 0)
             {
-                //status report to log every 30 counts
+                //status report to log every 60 counts
                 readSWSfromDatabase();
+                //lets fill the min max arrays as we start and every hour
+                // and also write the html pages
+                prepareMinMaxArrays("WXOUT");
+                prepareMinMaxArrays("WXIN");
+                prepareMinMaxArrays("WXPOOL");
+                prepareMinMaxArrays("WXROVER");
+
+
 #if VERBOSELOGGING
                 writeToLog($"Reading SWS data fromdatabase recCnt: {recCnt}");
+                writeToLog($"   also updating the MinMax web pages: {recCnt}");
 #endif
-
             }
-
 
             if (recCnt % 60 == 0)  // evey 60 minutes
             {
@@ -590,11 +606,6 @@ namespace WXsensorWebPage
         //---------------------^^^^^^^^^^^^^^^^^ end of function ^^^^^^^^^^^^^^-----------
 
 
-
-
-
-
-
         // --------------- Get Max Temps
         private void GetMaxMinReadingFromDatabase(string table)
         {
@@ -655,27 +666,6 @@ namespace WXsensorWebPage
         }
 
 //---------------------^^^^^^^^^^^^^^^^^ end of function ^^^^^^^^^^^^^^-----------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -881,39 +871,45 @@ namespace WXsensorWebPage
         /// <param name="press">The press.</param>
         private void webPOSTtoScarpWeather(double temp, double humid, double press, double strOutTemp1)
         {
-            double outTemp = strOutTemp1;  //this is straight from MS example code - more or less.
+            try
+            {
+                double outTemp = strOutTemp1;  //this is straight from MS example code - more or less.
+                string URL = "https://maker.ifttt.com/trigger/scarpweather_Data_Push/with/key/bvtUzCTPgTSrphRutbFIBh/";
+                //string postData = "{ value1 : T:23f, value2 : H: 74s, value3 : P: 995s }";
+                //string postData = "value1=T:23f&value2=H:74s&value3=P:995s";
 
-            string URL = "https://maker.ifttt.com/trigger/scarpweather_Data_Push/with/key/bvtUzCTPgTSrphRutbFIBh/";
-            //string postData = "{ value1 : T:23f, value2 : H: 74s, value3 : P: 995s }";
-            //string postData = "value1=T:23f&value2=H:74s&value3=P:995s";
+                string postData = "value1=\nTemp In:" + temp + " Temp Out:" + outTemp + "&value2=\nHumidity:" + humid + "&value3=\nPressure:" + press + ".";
+                //writeToLog("Twitter Post Data " + postData);
 
-            string postData = "value1=\nTemp In:" + temp + " Temp Out:" + outTemp + "&value2=\nHumidity:" + humid + "&value3=\nPressure:" + press + ".";
-            //writeToLog("Twitter Post Data " + postData);
+                byte[] byteArray = Encoding.UTF8.GetBytes(postData);
+                WebRequest request = WebRequest.Create(URL);
+                request.Method = "POST";
+                request.ContentType = "application/x-www-form-urlencoded";// Set the ContentType property of the WebRequest.  
+                request.ContentLength = byteArray.Length;// Set the ContentLength property of the WebRequest.  
+                Stream dataStream = request.GetRequestStream();// Get the request stream.
+                dataStream.Write(byteArray, 0, byteArray.Length);// Write the data to the request stream.  
+                dataStream.Close();// Close the Stream object.  
 
-            byte[] byteArray = Encoding.UTF8.GetBytes(postData);
-            WebRequest request = WebRequest.Create(URL);
-            request.Method = "POST";
-            request.ContentType = "application/x-www-form-urlencoded";// Set the ContentType property of the WebRequest.  
-            request.ContentLength = byteArray.Length;// Set the ContentLength property of the WebRequest.  
-            Stream dataStream = request.GetRequestStream();// Get the request stream.
-            dataStream.Write(byteArray, 0, byteArray.Length);// Write the data to the request stream.  
-            dataStream.Close();// Close the Stream object.  
+                WebResponse response = request.GetResponse(); // Get the response.  
+                                                              // Display the status.  
+                                                              // Console.WriteLine(((HttpWebResponse)response).StatusDescription);
+                                                              // Get the stream containing content returned by the server.  
+                dataStream = response.GetResponseStream();
 
-            WebResponse response = request.GetResponse(); // Get the response.  
-            // Display the status.  
-            // Console.WriteLine(((HttpWebResponse)response).StatusDescription);
-            // Get the stream containing content returned by the server.  
-            dataStream = response.GetResponseStream();
-            
-            StreamReader reader = new StreamReader(dataStream);// Open the stream using a StreamReader for easy access.  
-            
-            string responseFromServer = reader.ReadToEnd();// Read the content.  
-            // Display the content.  
-            //Console.WriteLine(responseFromServer);
-            // Clean up the streams.  
-            reader.Close();
-            dataStream.Close();
-            response.Close();
+                StreamReader reader = new StreamReader(dataStream);// Open the stream using a StreamReader for easy access.  
+
+                string responseFromServer = reader.ReadToEnd();// Read the content.  
+                                                               // Display the content.  
+                                                               //Console.WriteLine(responseFromServer);
+                                                               // Clean up the streams.  
+                reader.Close();
+                dataStream.Close();
+                response.Close();
+            }
+            catch (Exception ex)
+            {
+                writeToLog($"ERROR- in function webPOSTtoScarpWeather {ex}");
+            }
         }
 
         /// <summary>
@@ -933,14 +929,66 @@ namespace WXsensorWebPage
                     sw.WriteLine($"Log Time: {nowDate} : {now} : {mesg}"); //thats String Interpolation -the $ and curly brackets make it easy!
                     sw.Close();
                 }
+        }
+
+
+        //-------------vvvvvvvvvvvvvv time of last reading from database vvvvvvvvvvvvvv------------   
+        /// <summary>
+        /// Tget the most recent time of the last reading from the database and use these readings
+        /// compared to now to alert to a malfunctioning sensor.  Use to the nearest minute or two
+        /// </summary>
+        private void TimeLastReading()
+        {
+            SqlConnection conn;
+            SqlDataReader rdr = null;
+            DateTime rightNow = DateTime.Now;
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            string wxtable;
+            DateTime rdngTime;
+            int intHour;
+            bool Ib, Ob, Pb, Rb;
+            try
+            { // get the min and max temps and their respective times
+
+
+                sb.AppendLine($" SELECT * FROM(select TOP 1 'WXPOOL' as [Table], TIME as [MostRecent] from WXPOOL where datepart(hh, getdate()) = datepart(hh, TIME) and datepart(dd, getdate()) = datepart(dd, TIME) order by TIME DESC)a ");
+                sb.AppendLine($" union ");
+                sb.AppendLine($" SELECT * FROM(select TOP 1 'WXROVER' as [Table], TIME from WXROVER where datepart(hh, getdate()) = datepart(hh, TIME) and datepart(dd, getdate()) = datepart(dd, TIME) order by TIME DESC)b ");
+                sb.AppendLine($"  union ");
+                sb.AppendLine($" SELECT * FROM(select TOP 1 'WXOUT' as [Table], TIME from WXOUT where datepart(hh, getdate()) = datepart(hh, TIME) and datepart(dd, getdate()) = datepart(dd, TIME) order by TIME DESC)c ");
+                sb.AppendLine($"  union ");
+                sb.AppendLine($" select * from(select TOP 1 'WXIN' as [Table], TIME from WXIN where datepart(hh, getdate()) = datepart(hh, TIME) and datepart(dd, getdate()) = datepart(dd, TIME) order by TIME DESC)d ");
+                string getLastReadingTime = sb.ToString();  //make a big single string of the query...and execute it
+
+                conn = new SqlConnection(connectionString);  //connectionString is a global ATM
+                SqlCommand getReadings = new SqlCommand(getLastReadingTime, conn); // get todays Max
+                conn.Open();
+                rdr = getReadings.ExecuteReader();
+                while (rdr.Read())
+                {
+                    rdngTime = (DateTime)rdr["MostRecent"]; //this is the time of thereading from the database
+                    wxtable = (string)rdr["Table"];
+
+                    if (wxtable == "WXPOOL" && rdngTime.Hour == rightNow.Hour && rdngTime.Minute == rightNow.Minute) { ss.Pb = true; }
+                    if (wxtable == "WXROVER" && rdngTime.Hour == rightNow.Hour && rdngTime.Minute == rightNow.Minute) { ss.Rb = true; }
+                    if (wxtable == "WXIN" && rdngTime.Hour == rightNow.Hour && rdngTime.Minute == rightNow.Minute)  { ss.Ib = true; }
+                    if (wxtable == "WXOUT" && rdngTime.Hour == rightNow.Hour && rdngTime.Minute == rightNow.Minute) { ss.Ob = true; }
+
+                }
+                conn.Close();
             }
+            catch (Exception ex)
+            {
+                writeToLog($"ERROR-Calculating sensor status from the Database: {ex}");
+            }
+        }
 
+        //---------------------^^^^^^^^^^^^^^^^^ end of function ^^^^^^^^^^^^^^-----------
 
-     
 
 
         /// <summary>
-        /// Writes the html fo the webpage
+        /// Writes the html for - the webpage.  This is the main web page - index.html
         /// </summary>
         void writeToHTML()
         {
@@ -1013,6 +1061,34 @@ namespace WXsensorWebPage
                 sw.WriteLine(@"<input type=""button"" style=""float: right;""  onclick=""location.href = 'http://www.bom.gov.au/wa/forecasts/perth.shtml'; "" target=""_blank"" value=""Perth Forecast"" />");
                 sw.WriteLine(@"<input type=""button"" style=""float: right;"" onclick=""location.href = 'http://www.bom.gov.au/products/IDR703.loop.shtml'; "" target=""_blank""  value=""BOM Radar""  />");
                 sw.WriteLine(@"<input type=""button"" style=""float: right;""  onclick=""location.href = 'https://www.windy.com/-Satellite-satellite?satellite,-31.875,115.778,6'; "" target=""_blank""  value=""Windy""  />");
+
+
+
+                if (ss.Ib )
+                  sw.WriteLine("<span style=font-size:20px;>Sensor Status: In<img src = \"greenled.jpg\" alt =\" sensed \" style=\"width: 20px; height: 20px; \"> ");
+                else
+                  sw.WriteLine("<span style=font-size:20px;>Sensor Status: In<img src = \"redled.jpg\" alt =\"not sensed \" style=\"width: 20px; height: 20px; \"> ");
+
+                if (ss.Ob)
+                    sw.WriteLine("<span style=font-size:20px;> Out <img src = \"greenled.jpg\" alt =\" sensed \" style=\"width: 20px; height: 20px; \"> ");
+                else
+                    sw.WriteLine("<span style=font-size:20px;> Out <img src = \"redled.jpg\" alt =\"not sensed \" style=\"width: 20px; height: 20px; \"> ");
+                if (ss.Rb)
+                    sw.WriteLine("<span style=font-size:20px;> Rover <img src = \"greenled.jpg\" alt =\" sensed \" style=\"width: 20px; height: 20px; \"> ");
+                else
+                    sw.WriteLine("<span style=font-size:20px;> Rover <img src = \"redled.jpg\" alt =\"not sensed \" style=\"width: 20px; height: 20px; \"> ");
+                if (ss.Pb)
+                    sw.WriteLine("<span style=font-size:20px;> Pool <img src = \"greenled.jpg\" alt =\" sensed \" style=\"width: 20px; height: 20px; \"> ");
+                else
+                    sw.WriteLine("<span style=font-size:20px;> Pool <img src = \"redled.jpg\" alt =\"not sensed \" style=\"width: 20px; height: 20px; \"> ");
+
+
+
+
+                sw.WriteLine();
+                sw.WriteLine();
+                sw.WriteLine();
+
                 sw.WriteLine("<br>");
                 sw.WriteLine("</center>");
                 sw.WriteLine($"<table class=t1><tr>");
@@ -1072,7 +1148,7 @@ namespace WXsensorWebPage
                 sw.WriteLine($"<input type=button class=button_info onclick=location.href = '';  target=_blank value=\"SWS SFI:{sws.SFI} SSN:{sws.SSN} Ap:{sws.Ap} Kp:{sws.Kp} Xray:{sws.xRay} T:{sws.tIndex}\" />");
                 sw.WriteLine($"<input type=button class=button_infoIn onclick=\"location.href='minmax.html';\"  target=\"_blank\" value=\"InMin:{mm.wxInMin} @ {mm.wxInMinHour} InMax:{mm.wxInMax} @ {mm.wxInMaxHour}\" />");
                 //sw.WriteLine($"<input type=button class=button_infoIn onclick=\"location.href='c:\\inetpub\\wwwroot\\minmax.html';\"  target=\"_blank\" value=\"InMin:{mm.wxInMin} @ {mm.wxInMinHour} InMax:{mm.wxInMax} @ {mm.wxInMaxHour}\" />");
-                sw.WriteLine($"<input type=button class=button_infoOut onclick=location.href = '';  target=_blank value=\"OutMin:{mm.wxOutMin} @ {mm.wxOutMinHour} OutMax:{mm.wxOutMax} @ {mm.wxOutMaxHour}\" />");
+                sw.WriteLine($"<input type=button class=button_infoOut onclick=\"location.href='minmaxLastmonth.html';\"  target=_blank value=\"OutMin:{mm.wxOutMin} @ {mm.wxOutMinHour} OutMax:{mm.wxOutMax} @ {mm.wxOutMaxHour}\" />");
 
 
                 sw.WriteLine("</center>");
@@ -1314,32 +1390,91 @@ namespace WXsensorWebPage
                 rdngMaxTemp = (double)rdr["maxtemp"];
                 rdngMinTemp = (double)rdr["mintemp"];
 
+                //---------------------------
                 if (table == "WXIN" && rdngDate.Month == rightNow.Month)
                 {
                     tInMin[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
                     tInMax[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
                 }
+                else if (table == "WXIN" && (rdngDate.Month == rightNow.Month - 1))
+                {
+                    tInMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tInMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
+
+                else if (table == "WXIN" && (rdngDate.Year == rightNow.Year - 1 && rdngDate.Month == 12)) //this is for last year if we are in January
+                {
+                    tInMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tInMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
+
+                //------------------------------
                 if (table == "WXOUT" && rdngDate.Month == rightNow.Month)
                 {
                     tOutMin[rdngDate.Day] = rdngMinTemp + sc.ToutAdjust;
                     tOutMax[rdngDate.Day] = rdngMaxTemp + sc.ToutAdjust;
                 }
+                else if (table == "WXOUT" && (rdngDate.Month == rightNow.Month - 1 ))
+                {
+                    tOutMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tOutMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
 
+                else if (table == "WXOUT" && (rdngDate.Year == rightNow.Year - 1 && rdngDate.Month == 12)) //this is for last year if we are in January
+                {
+                    tOutMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tOutMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
+
+
+
+
+                //-----------------------------------------------
                 if (table == "WXPOOL" && rdngDate.Month == rightNow.Month)
                 {
                     tPoolMin[rdngDate.Day] = rdngMinTemp + sc.TpoolAdjust;
                     tPoolMax[rdngDate.Day] = rdngMaxTemp + sc.TpoolAdjust;
                 }
+                else if (table == "WXPOOL" && (rdngDate.Month == rightNow.Month - 1))
+                {
+                    tPoolMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tPoolMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
+
+                else if (table == "WXPOOL" && (rdngDate.Year == rightNow.Year - 1 && rdngDate.Month == 12)) //this is for last year if we are in January
+                {
+                    tPoolMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tPoolMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
+
+
+
+
+
+                //----------------------------------------------------------
                 if (table == "WXROVER" && rdngDate.Month == rightNow.Month)
                 {
                     tRoverMin[rdngDate.Day] = rdngMinTemp + sc.TroverAdjust;
                     tRoverMax[rdngDate.Day] = rdngMaxTemp +sc.TroverAdjust;
                 }
+                else if (table == "WXROVER" && (rdngDate.Month == rightNow.Month - 1))
+                {
+                    tRoverMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tRoverMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
+
+                else if (table == "WXROVER" && (rdngDate.Year == rightNow.Year - 1 && rdngDate.Month == 12)) //this is for last year if we are in January
+                {
+                    tRoverMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tRoverMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
+
 
             }
 
             conn.Close();
             MinMaxHTML();
+            MinMaxHTMLLastmonth();
         }
 
 
@@ -1589,6 +1724,316 @@ namespace WXsensorWebPage
                         sw.Write($"{tPoolMax[i]},");
                     }
                     else if (tPoolMax[i] == 0)
+                    {
+                        sw.Write($" ,");
+                    }
+                }
+                sw.WriteLine(" ],");
+                sw.WriteLine("borderColor: \"cyan\",");
+                sw.WriteLine("pointRadius: 2,");
+                sw.WriteLine("fill: false");
+                sw.WriteLine("}"); //only here
+                sw.WriteLine("]");// only here
+                sw.WriteLine(" },");
+
+                // little bit lets you touch a legend item and turn it off
+                sw.WriteLine("options: {");
+                sw.WriteLine("responsive: true, ");
+                sw.WriteLine("legend: { display: true },");
+                sw.WriteLine("labels: {");
+                sw.WriteLine("      filter: function(legendItem, chartData) {");
+                sw.WriteLine("      if (legendItem.datasetIndex === 0) {");
+                sw.WriteLine("      return false;");
+                sw.WriteLine("             }");
+                sw.WriteLine("   return true;");
+                sw.WriteLine("       }},");
+
+                sw.WriteLine("title: {");
+                sw.WriteLine("    display: false,");
+                sw.WriteLine("    text: 'Scarp Weather V2'");
+                sw.WriteLine("    }, ");
+                sw.WriteLine("scales: {");
+                if (DateTime.Now.Hour > 12)  //swap the y Axes ticks and scale to the rhs of the graph after midday
+                {
+                    sw.WriteLine("     yAxes: [{ id: 'y-axis-0', type: 'linear',position: 'right' , ");
+                }
+                else
+                {
+                    sw.WriteLine("     yAxes: [{ id: 'y-axis-0', type: 'linear',position: 'left' , ");
+                }
+                sw.WriteLine("        ticks: { ");
+                sw.WriteLine("       min: 0, ");
+                //sw.WriteLine($"       min: {br.BestMin - 5}, ");
+                sw.WriteLine("        stepSize: 2, ");
+                sw.WriteLine("        beginAtZero:false}");
+                sw.WriteLine("      }],"); //end of yAxes
+                sw.WriteLine("     xAxes: [{ ");
+                sw.WriteLine("         barThickness: 10,}]");
+                sw.WriteLine("");
+                sw.WriteLine("         }");//end of xAxes
+                sw.WriteLine("      }"); //end of scales
+                sw.WriteLine(" });"); //end of options
+
+                sw.WriteLine("canvas.onclick = function (evt) {");
+                sw.WriteLine("var points = line-chart.getPointsAtEvent(evt);");
+                sw.WriteLine("alert(line-chart.datasets[0].points.indexOf(points[0])); };");
+                sw.WriteLine("");
+                sw.WriteLine("  </script>");
+                sw.WriteLine(@"<span style=""font-family:Arial;font-size:12px;>""");
+                sw.WriteLine($"<p>Scarp Weather - Readings from Lesmurdie {fullDate}");
+                sw.WriteLine("</center>");
+                sw.WriteLine("</span></body></html>");
+                sw.Close();
+            }
+        }
+
+        /// <summary>
+        /// Minimums the maximum HTML lastmonth web page.
+        /// </summary>
+        void MinMaxHTMLLastmonth()
+        {
+
+            // var pathWithEnv = @"%USERPROFILE%\AppData\Local\MyProg\settings.file";
+            var pathWithEnv = @"c:\inetpub\wwwroot\minmaxLastmonth.html";
+            var filePath = Environment.ExpandEnvironmentVariables(pathWithEnv);
+            string updateCycle;  //= txtWebUpdateCycle.Text;
+            using (StreamWriter sw = new StreamWriter(filePath, append: false))  //using controls low-level resource useage
+            {
+                string now = DateTime.Now.ToString("h:mm:ss tt");
+                string fullDate = DateTime.Now.ToString("dd/MM/yyyy h:mm:ss tt");
+                updateCycle = txtWebUpdateCycle.Text;
+
+                sw.WriteLine("<HTML><HEAD>");
+                sw.WriteLine("<title>SCARP Weather</title>");
+                sw.WriteLine($"<meta http-equiv = \"refresh\" content = \"{updateCycle}\" >");// 1 is 1 second  60 is 60 seconds
+
+                sw.WriteLine(@"<meta name=""viewport"" content=""width = device - width, initial - scale = 1"">");
+                sw.WriteLine("<style>");
+                sw.WriteLine("* {box-sizing: border-box; } ");
+                sw.WriteLine(".column {");
+                sw.WriteLine("float: left;");
+                sw.WriteLine("width: 50%;");
+                sw.WriteLine("padding: 10px; }");
+
+                sw.WriteLine(".row:after {");
+                sw.WriteLine("content: \"\";");
+                sw.WriteLine("display: table;");
+                sw.WriteLine("clear: both;}");
+
+                sw.WriteLine("table.t1 { border-collapse: collapse; width: 100%;}");
+                sw.WriteLine("table.t1 th{ font-size:24px;}");
+                sw.WriteLine("table.t1 td{ font-size:16px; height: 20px; padding: 5px; border-bottom:1px solid #ddd;}");
+                sw.WriteLine("table.t2 { border-collapse: collapse; width: 50%;}");
+                sw.WriteLine("table.t2 th{ font-size:24px;}");
+                sw.WriteLine("table.t2 td{ font-size:16px; height: 20px; padding: 5px; border-bottom:1px solid #ddd;}");
+
+                sw.WriteLine("");
+                sw.WriteLine(".button_green{background-color: green; color: white; font-size: 14px;}");  //a bit of css to use to colour the buttons as required
+                sw.WriteLine(".button_red{background-color: red; color: black; font-size: 14x;}");
+                sw.WriteLine(".button_white{background-color: white; color: black; font-size: 14px;}");
+                sw.WriteLine(".button_yellow{background-color: yellow; color: black; font-size: 14px;}");
+                sw.WriteLine(".button_blue{background-color: blue; color: white; font-size: 14px;}");
+
+                sw.WriteLine(".button_blueInfo{background-color: blue; color: white;font-size: 14px; padding: 4px 10px;}");
+                sw.WriteLine(".button_redInfo{background-color: red; color: white;font-size: 14px; padding: 4px 10px;}");
+                sw.WriteLine(".button_greenInfo{background-color: green; color: white;f1ont-size: 14px; padding: 4px 10px;}");
+
+                sw.WriteLine(".button_info{background-color: gray; color: blue;font-size: 14px; padding: 4px 10px;}");
+                sw.WriteLine(".button_infoIn{background-color: white; color: blue;font-size: 14px; padding: 4px 10px;}");
+                sw.WriteLine(".button_infoOut{background-color: white; color: red;font-size: 14px; padding: 4px 10px;}");
+
+                sw.WriteLine(".btn-group button{background-color: #4CAF50; border: 1px solid green; color: white; padding: 10px 24px; cursor:pointer; float:left;}");
+                sw.WriteLine("</style>");
+                //this is the library for charts.js
+                sw.WriteLine(@"<script src=""https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js""></script>");
+                sw.WriteLine(@"</head><body>");
+                sw.WriteLine("<center><h2>Scarp Weather - Minimums and Maximums for the Previous month</H2>");
+
+                sw.WriteLine("</center>");
+
+                sw.WriteLine(@"<span style=""font-family:Arial;font-size:45px;>""");
+                sw.WriteLine(@"</span>");
+                //sw.WriteLine($"<input type=button  style=float: right; class=button_white onclick=location.href = '';  target=_blank value=\"OutMin: {dailyMin} OutMax: {dailyMax} InMin: {dailyInMin} InMax: {dailyInMax} \" />");
+                sw.WriteLine("<br>");
+                sw.WriteLine("</center>");
+                sw.WriteLine("<p>");
+                sw.WriteLine("</ul><center>");
+
+                //the graph
+                sw.WriteLine("<canvas id=\"line-chart\" width=\"300\" height = \"130\" ></canvas>");
+                //sw.WriteLine("<canvas id=\"mixed-chart\" width=\"300\" height = \"110\" ></canvas>");
+                sw.WriteLine("<script>");
+                sw.WriteLine(@"new Chart(document.getElementById(""line-chart""), {");
+                sw.WriteLine("type: 'bar',");
+                sw.WriteLine("data: {");
+                sw.WriteLine(@"labels: [""1st"",""2nd"",""3rd"",""4th"",""5th"",""6th"",""7th"",""8th"",""9th"",""10th"",""11th"",""12th"",""13th"",""14th"",""15"",""16"",""17"",""18th"",""19"",""20"",""21"",""22"",""23"",""24"",""25"",""26"",""27"",""28"",""29"",""30"",""31""],");
+                sw.WriteLine("datasets: [{");
+
+                //IN Minimums this month
+                sw.WriteLine("label: 'In Minimum',");
+                sw.WriteLine("id: \"y-axis-0\",");
+                sw.WriteLine("backgroundColor: [\"blue\"],");
+                sw.Write($"data:[");
+                for (int i = 0; i < 32; i++)
+                {
+                    if (tInMinLM[i] > 0)
+                    {
+                        sw.Write($"{tInMinLM[i]},");
+                    }
+                    else if (tInMinLM[i] == 0)
+                    {
+                        sw.Write($" ,");
+                    }
+
+                }
+                sw.WriteLine(" ],");
+                sw.WriteLine("borderColor: [\"blue\"],");
+                sw.WriteLine("pointRadius: 2,");
+                sw.WriteLine("fill:false,");
+                sw.WriteLine("type: 'line' ");
+                sw.WriteLine("},{");
+
+                //In Maximums this month
+                sw.WriteLine("label: 'In Max',");
+                sw.WriteLine("id: \"y-axis-0\",");
+                sw.WriteLine("backgroundColor: [\"blue\"],");
+                sw.Write($"data:[");
+                for (int i = 0; i < 32; i++)
+                {
+                    if (tInMaxLM[i] > 0)
+                    {
+                        sw.Write($"{tInMaxLM[i]},");
+                    }
+                    else if (tInMaxLM[i] == 0)
+                    {
+                        sw.Write($" ,");
+                    }
+
+                }
+                sw.WriteLine(" ],");
+                sw.WriteLine("borderColor: [\"blue\"],");
+                sw.WriteLine("pointRadius: 2,");
+                sw.WriteLine("fill:false,");
+                sw.WriteLine("type: 'line' ");
+                sw.WriteLine("},{");
+                //OUT MINimums this month
+                sw.WriteLine("label: 'Out Minimum',");
+                sw.WriteLine("id: \"y-axis-0\",");
+                sw.WriteLine("backgroundColor: [\"red\"],");
+                sw.Write($"data:[");
+                for (int i = 0; i < 32; i++)
+                {
+                    if (tOutMinLM[i] > 0)
+                    {
+                        sw.Write($"{tOutMinLM[i]},");
+                    }
+                    else if (tOutMinLM[i] == 0)
+                    {
+                        sw.Write($" ,");
+                    }
+
+                }
+                sw.WriteLine(" ],");
+                sw.WriteLine("borderColor: [\"red\"],");
+                sw.WriteLine("pointRadius: 2,");
+                sw.WriteLine("fill:false,");
+                sw.WriteLine("type: 'line' ");
+                sw.WriteLine("},{");
+                // OUT Max 
+                sw.WriteLine("label: \"Out Maximum\",");
+                sw.WriteLine("type: \"line\",");
+                sw.WriteLine("backgroundColor: [\"red\"],");
+                sw.Write($"data:[");
+                for (int i = 0; i < 32; i++)
+                {
+                    if (tOutMaxLM[i] > 0)
+                    {
+                        sw.Write($"{tOutMaxLM[i]},");
+                    }
+                    else if (tOutMaxLM[i] == 0)
+                    {
+                        sw.Write($" ,");
+                    }
+                }
+                sw.WriteLine(" ],");
+                sw.WriteLine("borderColor: [\"red\"],");
+                sw.WriteLine("pointRadius: 2,");
+                sw.WriteLine("fill: false");
+                sw.WriteLine(" },{");
+
+                sw.WriteLine("label: \"Rover Minimum\",");
+                sw.WriteLine("type: \"line\",");
+                sw.WriteLine("backgroundColor: \"#CCCC00\",");
+                sw.Write($"data:[");
+                for (int i = 0; i < 32; i++)
+                {
+                    if (tRoverMinLM[i] > 0)
+                    {
+                        sw.Write($"{tRoverMinLM[i]},");
+                    }
+                    else if (tRoverMinLM[i] == 0)
+                    {
+                        sw.Write($" ,");
+                    }
+                }
+                sw.WriteLine(" ],");
+                sw.WriteLine("borderColor: \"#CCCC00\",");
+                sw.WriteLine("pointRadius: 2,");
+                sw.WriteLine("fill: false");
+                sw.WriteLine(" },{");//-----------------------------
+                sw.WriteLine("label: \"Rover Maximum\",");
+                sw.WriteLine("type: \"line\",");
+                sw.WriteLine("backgroundColor: \"#CCCC00\",");
+                sw.Write($"data:[");
+                for (int i = 0; i < 32; i++)
+                {
+                    if (tRoverMaxLM[i] > 0)
+                    {
+                        sw.Write($"{tRoverMaxLM[i]},");
+                    }
+                    else if (tRoverMaxLM[i] == 0)
+                    {
+                        sw.Write($" ,");
+                    }
+                }
+                sw.WriteLine(" ],");
+                sw.WriteLine("borderColor: \"#CCCC00\",");
+                sw.WriteLine("pointRadius: 2,");
+                sw.WriteLine("fill: false");
+                //sw.WriteLine("}");
+                //sw.WriteLine("]");
+                sw.WriteLine(" },{"); //-----------------------------------
+                sw.WriteLine("label: \"Pool Minimum\",");
+                sw.WriteLine("type: \"line\",");
+                sw.WriteLine("backgroundColor: \"cyan\",");
+                sw.Write($"data:[");
+                for (int i = 0; i < 32; i++)
+                {
+                    if (tPoolMinLM[i] > 0)
+                    {
+                        sw.Write($"{tPoolMinLM[i]},");
+                    }
+                    else if (tPoolMinLM[i] == 0)
+                    {
+                        sw.Write($" ,");
+                    }
+                }
+                sw.WriteLine(" ],");
+                sw.WriteLine("borderColor: [\"cyan\"],");
+                sw.WriteLine("pointRadius: 2,");
+                sw.WriteLine("fill: false");
+                sw.WriteLine(" },{"); //------------------------------------
+                sw.WriteLine("label: \"Pool Maximum\",");
+                sw.WriteLine("type: \"line\",");
+                sw.WriteLine("backgroundColor: [\"cyan\"],");
+                sw.Write($"data:[");
+                for (int i = 0; i < 32; i++)
+                {
+                    if (tPoolMaxLM[i] > 0)
+                    {
+                        sw.Write($"{tPoolMaxLM[i]},");
+                    }
+                    else if (tPoolMaxLM[i] == 0)
                     {
                         sw.Write($" ,");
                     }
