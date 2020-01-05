@@ -951,13 +951,13 @@ namespace WXsensorWebPage
             { // get the min and max temps and their respective times
 
 
-                sb.AppendLine($" SELECT * FROM(select TOP 1 'WXPOOL' as [Table], TIME as [MostRecent] from WXPOOL where datepart(hh, getdate()) = datepart(hh, TIME) and datepart(dd, getdate()) = datepart(dd, TIME) order by TIME DESC)a ");
+                sb.AppendLine($" SELECT * FROM(select TOP 1 'WXPOOL' as [Table], TIME as [MostRecent] from WXPOOL order by TIME DESC)a ");
                 sb.AppendLine($" union ");
-                sb.AppendLine($" SELECT * FROM(select TOP 1 'WXROVER' as [Table], TIME from WXROVER where datepart(hh, getdate()) = datepart(hh, TIME) and datepart(dd, getdate()) = datepart(dd, TIME) order by TIME DESC)b ");
+                sb.AppendLine($" SELECT * FROM(select TOP 1 'WXROVER' as [Table], TIME from WXROVER order by TIME DESC)b ");
                 sb.AppendLine($"  union ");
-                sb.AppendLine($" SELECT * FROM(select TOP 1 'WXOUT' as [Table], TIME from WXOUT where datepart(hh, getdate()) = datepart(hh, TIME) and datepart(dd, getdate()) = datepart(dd, TIME) order by TIME DESC)c ");
+                sb.AppendLine($" SELECT * FROM(select TOP 1 'WXOUT' as [Table], TIME from WXOUT order by TIME DESC)c ");
                 sb.AppendLine($"  union ");
-                sb.AppendLine($" select * from(select TOP 1 'WXIN' as [Table], TIME from WXIN where datepart(hh, getdate()) = datepart(hh, TIME) and datepart(dd, getdate()) = datepart(dd, TIME) order by TIME DESC)d ");
+                sb.AppendLine($" select * from(select TOP 1 'WXIN' as [Table], TIME from WXIN order by TIME DESC)d ");
                 string getLastReadingTime = sb.ToString();  //make a big single string of the query...and execute it
 
                 conn = new SqlConnection(connectionString);  //connectionString is a global ATM
@@ -969,10 +969,38 @@ namespace WXsensorWebPage
                     rdngTime = (DateTime)rdr["MostRecent"]; //this is the time of thereading from the database
                     wxtable = (string)rdr["Table"];
 
-                    if (wxtable == "WXPOOL" && rdngTime.Hour == rightNow.Hour && rdngTime.Minute == rightNow.Minute) { ss.Pb = true; }
-                    if (wxtable == "WXROVER" && rdngTime.Hour == rightNow.Hour && rdngTime.Minute == rightNow.Minute) { ss.Rb = true; }
-                    if (wxtable == "WXIN" && rdngTime.Hour == rightNow.Hour && rdngTime.Minute == rightNow.Minute)  { ss.Ib = true; }
-                    if (wxtable == "WXOUT" && rdngTime.Hour == rightNow.Hour && rdngTime.Minute == rightNow.Minute) { ss.Ob = true; }
+                    //attempting give around a couple of minutes leeway before reporting an red led
+                    //and laying it out this way is better than the commented lines below I think
+                    if(rdngTime.Hour == rightNow.Hour && (rdngTime.Minute > rightNow.Minute - 2 || rdngTime.Minute < rightNow.Minute + 2))
+                    {
+                        switch (wxtable)
+                        {
+                            case "WXPOOL":
+                                ss.Pb = true;
+                                break;
+                            case "WXROVER":
+                                ss.Rb = true;
+                                break;
+                            case "WXOUT":
+                                ss.Ob = true;
+                                break;
+                            case "WXIN":
+                                ss.Ib = true;
+                                break;
+                        }//end case
+                    }//end if
+
+
+
+                    //if (wxtable == "WXPOOL" && rdngTime.Hour == rightNow.Hour && rdngTime.Minute > rightNow.Minute - 2 && rdngTime.Minute > rightNow.Minute + 2) { ss.Pb = true; }
+                    //if (wxtable == "WXROVER" && rdngTime.Hour == rightNow.Hour && rdngTime.Minute > rightNow.Minute-2 && rdngTime.Minute > rightNow.Minute + 2) { ss.Rb = true; }
+                    //if (wxtable == "WXIN" && rdngTime.Hour == rightNow.Hour && rdngTime.Minute > rightNow.Minute - 2 && rdngTime.Minute > rightNow.Minute + 2) { ss.Ib = true; }
+                    //if (wxtable == "WXOUT" && rdngTime.Hour == rightNow.Hour && (rdngTime.Minute > rightNow.Minute - 2 || rdngTime.Minute < rightNow.Minute + 2) ) { ss.Ob = true; }
+
+                    //if (wxtable == "WXPOOL" && rdngTime.Hour == rightNow.Hour) { ss.Pb = true; }
+                    //if (wxtable == "WXROVER" && rdngTime.Hour == rightNow.Hour) { ss.Rb = true; }
+                    //if (wxtable == "WXIN" && rdngTime.Hour == rightNow.Hour ) { ss.Ib = true; }
+                    //if (wxtable == "WXOUT" && rdngTime.Hour == rightNow.Hour ) { ss.Ob = true; }
 
                 }
                 conn.Close();
@@ -1065,9 +1093,9 @@ namespace WXsensorWebPage
 
 
                 if (ss.Ib )
-                  sw.WriteLine("<span style=font-size:20px;>Sensor Status: In<img src = \"greenled.jpg\" alt =\" sensed \" style=\"width: 20px; height: 20px; \"> ");
+                  sw.WriteLine($"<span style=font-size:20px;>Sensor Status: In{ss.Ib}<img src = \"greenled.jpg\" alt =\" sensed \" style=\"width: 20px; height: 20px; \">  ");
                 else
-                  sw.WriteLine("<span style=font-size:20px;>Sensor Status: In<img src = \"redled.jpg\" alt =\"not sensed \" style=\"width: 20px; height: 20px; \"> ");
+                  sw.WriteLine($"<span style=font-size:20px;>Sensor Status: In{ss.Ib}<img src = \"redled.jpg\" alt =\"not sensed \" style=\"width: 20px; height: 20px; \"> ");
 
                 if (ss.Ob)
                     sw.WriteLine("<span style=font-size:20px;> Out <img src = \"greenled.jpg\" alt =\" sensed \" style=\"width: 20px; height: 20px; \"> ");
