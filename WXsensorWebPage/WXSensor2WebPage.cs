@@ -94,14 +94,16 @@ namespace WXsensorWebPage
 
         struct BOMReadings
         { //this is to store current sensor reading for display on web page
-            public double BestMax;
-            public double BestMin;
-            public double BcurrentTemp;
+            public double BestMax;  //this comes from another table now
+            public double BestMin; //this comes from another table  - WXKALAMUNDAFC (forecast)
+            public string BestRainfall;
+            public double BcurrentTemp; 
             public double BcurrentHumid;
             public double BcurrentPress;
             public double BWindSpeed;
             public string BWindDir;
             public double Brainfall;
+            
         }
         BOMReadings br = new BOMReadings();
 
@@ -285,6 +287,10 @@ namespace WXsensorWebPage
                 CurrentReadingFromDatabase("WXBOMGHILL");
                 System.Threading.Thread.Sleep(100);
                 BOMReadingFromDatabase("WXBOMGHILL");
+                System.Threading.Thread.Sleep(100);
+                BOMReadingMinMaxFromDatabase("WXKALAMUNDAFC");
+
+
                 //update the House Conditions
                 hc.ThighTemp = double.Parse(txtHighTempcondition.Text);
                 hc.TlowTemp = double.Parse(txtLowTempCondition.Text);
@@ -673,21 +679,9 @@ namespace WXsensorWebPage
         {
             SqlConnection conn;
             SqlDataReader rdr = null;
-            double rdngTemp;
-            double rdngHumid;
-            double rdngPressure;
-            double rdngWindspeed;
-            double rdngRainfall;
-            double rdngEstbommin;
-            double rdngEstbommax;
-            string rdngWinddir;
-            DateTime rdngTime;
             DateTime rightNow = DateTime.Now;
-            int intDay, intHour;
-
             try
             {
-
                 conn = new SqlConnection(connectionString);  //connectionString is a global ATM
                 SqlCommand getReadings = new SqlCommand($"select  top 1 TIME, TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from {table}   order by TIME DESC", conn);
                 //select top 1 TIME,TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from WXBOMGHILL where  datepart(hh, TIME) = '9'   order by TIME DESC
@@ -707,11 +701,37 @@ namespace WXsensorWebPage
                 }
                 conn.Close();
             }
-
             catch (Exception ex)
             {
                 writeToLog($"ERROR-BOMReadingFromDatabase {ex}");
             }
+        }
+        private void BOMReadingMinMaxFromDatabase(string table)  //this is new 20200429 to replace other tries at getting this data
+        {
+            SqlConnection conn;
+            SqlDataReader rdr = null;
+            DateTime rightNow = DateTime.Now;
+   //         try
+   //         {
+                conn = new SqlConnection(connectionString);  //connectionString is a global ATM
+                SqlCommand getReadings = new SqlCommand($"select  top 1 * from {table} where [ISOYEAR] = convert(char(10), getdate(), 112)", conn);
+                //select top 1 TIME,TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from WXBOMGHILL where  datepart(hh, TIME) = '9'   order by TIME DESC
+                conn.Open();
+                rdr = getReadings.ExecuteReader();
+                while (rdr.Read())
+                {
+                    // get the results of each column
+                    br.BestMax = double.Parse(rdr["MAXTEMP"].ToString());  //dont want to do this all the time -once per day by readBOMMInMaxFromdatabase() higher up
+                    br.BestMin = double.Parse(rdr["MINTEMP"].ToString());
+                    br.BestRainfall = rdr["FORECAST"].ToString();
+
+                }
+                conn.Close();
+ //          }
+ //          catch (Exception ex)
+ //           {
+ //               writeToLog($"ERROR-BOMReadingFromDatabase Min and Max Data {ex}");
+ //           }
         }
 
 
@@ -934,8 +954,8 @@ namespace WXsensorWebPage
 
         //-------------vvvvvvvvvvvvvv time of last reading from database vvvvvvvvvvvvvv------------   
         /// <summary>
-        /// Tget the most recent time of the last reading from the database and use these readings
-        /// compared to now to alert to a malfunctioning sensor.  Use to the nearest minute or two
+        /// To get the most recent time of the last reading from the database and use these readings
+        /// compared to RightNow to alert to a malfunctioning sensor.  Use to the nearest minute or two
         /// </summary>
         private void TimeLastReading()
         {
@@ -945,12 +965,8 @@ namespace WXsensorWebPage
             System.Text.StringBuilder sb = new System.Text.StringBuilder();
             string wxtable;
             DateTime rdngTime;
-            int intHour;
-            bool Ib, Ob, Pb, Rb;
             try
             { // get the min and max temps and their respective times
-
-
                 sb.AppendLine($" SELECT * FROM(select TOP 1 'WXPOOL' as [Table], TIME as [MostRecent] from WXPOOL order by TIME DESC)a ");
                 sb.AppendLine($" union ");
                 sb.AppendLine($" SELECT * FROM(select TOP 1 'WXROVER' as [Table], TIME from WXROVER order by TIME DESC)b ");
@@ -970,7 +986,7 @@ namespace WXsensorWebPage
                     wxtable = (string)rdr["Table"];
 
                     //attempting give around a couple of minutes leeway before reporting an red led
-                    //and laying it out this way is better than the commented lines below I think
+                    //and laying it out this way is better than the convoluted long logic
                     if(rdngTime.Hour == rightNow.Hour && (rdngTime.Minute > rightNow.Minute - 2 || rdngTime.Minute < rightNow.Minute + 2))
                     {
                         switch (wxtable)
@@ -989,19 +1005,6 @@ namespace WXsensorWebPage
                                 break;
                         }//end case
                     }//end if
-
-
-
-                    //if (wxtable == "WXPOOL" && rdngTime.Hour == rightNow.Hour && rdngTime.Minute > rightNow.Minute - 2 && rdngTime.Minute > rightNow.Minute + 2) { ss.Pb = true; }
-                    //if (wxtable == "WXROVER" && rdngTime.Hour == rightNow.Hour && rdngTime.Minute > rightNow.Minute-2 && rdngTime.Minute > rightNow.Minute + 2) { ss.Rb = true; }
-                    //if (wxtable == "WXIN" && rdngTime.Hour == rightNow.Hour && rdngTime.Minute > rightNow.Minute - 2 && rdngTime.Minute > rightNow.Minute + 2) { ss.Ib = true; }
-                    //if (wxtable == "WXOUT" && rdngTime.Hour == rightNow.Hour && (rdngTime.Minute > rightNow.Minute - 2 || rdngTime.Minute < rightNow.Minute + 2) ) { ss.Ob = true; }
-
-                    //if (wxtable == "WXPOOL" && rdngTime.Hour == rightNow.Hour) { ss.Pb = true; }
-                    //if (wxtable == "WXROVER" && rdngTime.Hour == rightNow.Hour) { ss.Rb = true; }
-                    //if (wxtable == "WXIN" && rdngTime.Hour == rightNow.Hour ) { ss.Ib = true; }
-                    //if (wxtable == "WXOUT" && rdngTime.Hour == rightNow.Hour ) { ss.Ob = true; }
-
                 }
                 conn.Close();
             }
@@ -1013,6 +1016,107 @@ namespace WXsensorWebPage
 
         //---------------------^^^^^^^^^^^^^^^^^ end of function ^^^^^^^^^^^^^^-----------
 
+        void prepareMinMaxArrays(string table)
+        {
+            SqlConnection conn;
+            SqlDataReader rdr = null;
+            double rdngMaxTemp;
+            double rdngMinTemp;
+            DateTime rdngDate;
+            DateTime rightNow = DateTime.Now;
+            conn = new SqlConnection(connectionString);  //connectionString is a global ATM
+
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            sb.AppendLine($"select cast(TIME as date) as date, min(TEMP) as mintemp, max(TEMP) as maxtemp ");
+            sb.AppendLine($" from {table} pvh ");
+            sb.AppendLine($" group by cast(TIME as date) ");
+            sb.AppendLine($" order by 1 DESC ");
+            sb.AppendLine($" ");
+            string sqlQuery = sb.ToString();
+            SqlCommand getReadings = new SqlCommand(sqlQuery, conn);
+            conn.Open();
+            rdr = getReadings.ExecuteReader();
+
+            while (rdr.Read())
+            {
+                // get the results of each column
+                rdngDate = (DateTime)rdr["date"]; //this is the ime of thereading from the database
+                rdngMaxTemp = (double)rdr["maxtemp"];
+                rdngMinTemp = (double)rdr["mintemp"];
+
+                //---------------------------
+                if (table == "WXIN" && rdngDate.Month == rightNow.Month)
+                {
+                    tInMin[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tInMax[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
+                else if (table == "WXIN" && (rdngDate.Month == rightNow.Month - 1))
+                {
+                    tInMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tInMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
+
+                else if (table == "WXIN" && (rdngDate.Year == rightNow.Year - 1 && rdngDate.Month == 12)) //this is for last year if we are in January
+                {
+                    tInMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tInMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
+
+                //------------------------------
+                if (table == "WXOUT" && rdngDate.Month == rightNow.Month)
+                {
+                    tOutMin[rdngDate.Day] = rdngMinTemp + sc.ToutAdjust;
+                    tOutMax[rdngDate.Day] = rdngMaxTemp + sc.ToutAdjust;
+                }
+                else if (table == "WXOUT" && (rdngDate.Month == rightNow.Month - 1))
+                {
+                    tOutMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tOutMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
+                else if (table == "WXOUT" && (rdngDate.Year == rightNow.Year - 1 && rdngDate.Month == 12)) //this is for last year if we are in January
+                {
+                    tOutMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tOutMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
+
+                //-----------------------------------------------
+                if (table == "WXPOOL" && rdngDate.Month == rightNow.Month)
+                {
+                    tPoolMin[rdngDate.Day] = rdngMinTemp + sc.TpoolAdjust;
+                    tPoolMax[rdngDate.Day] = rdngMaxTemp + sc.TpoolAdjust;
+                }
+                else if (table == "WXPOOL" && (rdngDate.Month == rightNow.Month - 1))
+                {
+                    tPoolMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tPoolMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
+                else if (table == "WXPOOL" && (rdngDate.Year == rightNow.Year - 1 && rdngDate.Month == 12)) //this is for last year if we are in January
+                {
+                    tPoolMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tPoolMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
+
+                //----------------------------------------------------------
+                if (table == "WXROVER" && rdngDate.Month == rightNow.Month)
+                {
+                    tRoverMin[rdngDate.Day] = rdngMinTemp + sc.TroverAdjust;
+                    tRoverMax[rdngDate.Day] = rdngMaxTemp + sc.TroverAdjust;
+                }
+                else if (table == "WXROVER" && (rdngDate.Month == rightNow.Month - 1))
+                {
+                    tRoverMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tRoverMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
+                else if (table == "WXROVER" && (rdngDate.Year == rightNow.Year - 1 && rdngDate.Month == 12)) //this is for last year if we are in January
+                {
+                    tRoverMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
+                    tRoverMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
+                }
+            }
+            conn.Close(); //close the connection to the database
+            MinMaxHTML();  //create the webpage
+            MinMaxHTMLLastmonth(); //create the web page
+        }// end of the function
 
 
         /// <summary>
@@ -1086,16 +1190,16 @@ namespace WXsensorWebPage
                 sw.WriteLine($" &nbsp; </span>In <span style=font-size:55px;>{cr.cTEMPIn}</span><span style=font-size:30px;><sup>o</sup>C &nbsp;</span> <span style=font-size:35px;>Out </span> <span style=font-size:55px;>{cr.cTEMPOut}<span style=font-size:30px;><sup>o</sup>C </span></font></center>&nbsp;");
                 sw.WriteLine(@"</span>");
                 //sw.WriteLine($"<input type=button  style=float: right; class=button_white onclick=location.href = '';  target=_blank value=\"OutMin: {dailyMin} OutMax: {dailyMax} InMin: {dailyInMin} InMax: {dailyInMax} \" />");
-                sw.WriteLine(@"<input type=""button"" style=""float: right;""  onclick=""location.href = 'http://www.bom.gov.au/wa/forecasts/perth.shtml'; "" target=""_blank"" value=""Perth Forecast"" />");
+                sw.WriteLine(@"<input type=""button"" style=""float: right;""  onclick=""location.href = 'http://www.bom.gov.au/wa/forecasts/kalamunda.shtml'; "" target=""_blank"" value=""Kalamunda Forecast"" />");
                 sw.WriteLine(@"<input type=""button"" style=""float: right;"" onclick=""location.href = 'http://www.bom.gov.au/products/IDR703.loop.shtml'; "" target=""_blank""  value=""BOM Radar""  />");
                 sw.WriteLine(@"<input type=""button"" style=""float: right;""  onclick=""location.href = 'https://www.windy.com/-Satellite-satellite?satellite,-31.875,115.778,6'; "" target=""_blank""  value=""Windy""  />");
 
 
-
+                // this is the logic that controls the colour of the Status leds
                 if (ss.Ib )
-                  sw.WriteLine($"<span style=font-size:20px;>Sensor Status: In{ss.Ib}<img src = \"greenled.jpg\" alt =\" sensed \" style=\"width: 20px; height: 20px; \">  ");
+                  sw.WriteLine($"<span style=font-size:20px;>Sensor Status: In<img src = \"greenled.jpg\" alt =\" sensed \" style=\"width: 20px; height: 20px; \">  ");
                 else
-                  sw.WriteLine($"<span style=font-size:20px;>Sensor Status: In{ss.Ib}<img src = \"redled.jpg\" alt =\"not sensed \" style=\"width: 20px; height: 20px; \"> ");
+                  sw.WriteLine($"<span style=font-size:20px;>Sensor Status: In<img src = \"redled.jpg\" alt =\"not sensed \" style=\"width: 20px; height: 20px; \"> ");
 
                 if (ss.Ob)
                     sw.WriteLine("<span style=font-size:20px;> Out <img src = \"greenled.jpg\" alt =\" sensed \" style=\"width: 20px; height: 20px; \"> ");
@@ -1177,6 +1281,7 @@ namespace WXsensorWebPage
                 sw.WriteLine($"<input type=button class=button_infoIn onclick=\"location.href='minmax.html';\"  target=\"_blank\" value=\"InMin:{mm.wxInMin} @ {mm.wxInMinHour} InMax:{mm.wxInMax} @ {mm.wxInMaxHour}\" />");
                 //sw.WriteLine($"<input type=button class=button_infoIn onclick=\"location.href='c:\\inetpub\\wwwroot\\minmax.html';\"  target=\"_blank\" value=\"InMin:{mm.wxInMin} @ {mm.wxInMinHour} InMax:{mm.wxInMax} @ {mm.wxInMaxHour}\" />");
                 sw.WriteLine($"<input type=button class=button_infoOut onclick=\"location.href='minmaxLastmonth.html';\"  target=_blank value=\"OutMin:{mm.wxOutMin} @ {mm.wxOutMinHour} OutMax:{mm.wxOutMax} @ {mm.wxOutMaxHour}\" />");
+                sw.WriteLine($"<input type=button class=button_infoOut onclick=\"location.href='minmaxLastmonth.html';\"  target=_blank value=\"Fcast:{br.BestRainfall}\" />");
 
 
                 sw.WriteLine("</center>");
@@ -1278,6 +1383,30 @@ namespace WXsensorWebPage
                 sw.WriteLine("pointRadius: 2,");
                 sw.WriteLine("fill: false");
 
+
+                //Pool
+                sw.WriteLine("},{");
+                sw.WriteLine("label: \"Pool\",");
+                sw.WriteLine("type: \"line\",");
+                sw.WriteLine("backgroundColor: [\"cyan\"],");
+                sw.Write($"data:[");
+                for (int i = 0; i < 24; i++)
+                {
+                    if (tPool[i] > 0)
+                    {
+                        sw.Write($"{tPool[i]},");
+                    }
+                    else if (tPool[i] == 0)
+                    {
+                        sw.Write($" ,");
+                    }
+                }
+                sw.WriteLine(" ],");
+                sw.WriteLine("borderDash: [30,10],");
+                sw.WriteLine("borderColor: \"#00ffff\",");
+                sw.WriteLine("pointRadius: 2,");
+                sw.WriteLine("fill: false");
+
                 sw.WriteLine("},{");
                 sw.WriteLine("label: \"ROVER\",");
                 sw.WriteLine("type: \"line\",");
@@ -1352,7 +1481,7 @@ namespace WXsensorWebPage
                 //sw.WriteLine("tooltips: {enabled: true, mode: 'index', intersect: false} ,");
                 //sw.WriteLine("hover: {mode: '', intersect: true } , ");
                 sw.WriteLine("scales: {");
-                //if (rightNow.Hour > 12)  //swap the y Axes ticks and scale to the rhs of the graph after midday
+  
                 if (DateTime.Now.Hour > 12)  //swap the y Axes ticks and scale to the rhs of the graph after midday
                 {
                     sw.WriteLine("     yAxes: [{ id: 'y-axis-0', type: 'linear',position: 'right' , ");
@@ -1362,12 +1491,13 @@ namespace WXsensorWebPage
                     sw.WriteLine("     yAxes: [{ id: 'y-axis-0', type: 'linear',position: 'left' , ");
                 }
                 sw.WriteLine("        ticks: { ");
-                sw.WriteLine($"       min: {br.BestMin - 5}, ");
-                sw.WriteLine("        stepSize: 1, ");
-                sw.WriteLine("        beginAtZero:false}");
+                sw.WriteLine($"           min: {br.BestMin - 5}, ");
+                sw.WriteLine("           stepSize: 1, ");
+                sw.WriteLine("           beginAtZero:false},");
+                sw.WriteLine("        gridLines:{color: \"#c0c0c0\",lineWidth:1} ");
                 sw.WriteLine("      }],"); //end of yAxes
                 sw.WriteLine("     xAxes: [{ ");
-                sw.WriteLine("         barThickness: 10,}]");
+                sw.WriteLine("         barThickness: 10,lineWidth:5}]");
                 sw.WriteLine("");
                 sw.WriteLine("         }");//end of xAxes
                 sw.WriteLine("      }"); //end of scales
@@ -1387,122 +1517,6 @@ namespace WXsensorWebPage
                 sw.WriteLine("</span></body></html>");
                 sw.Close();
             }
-        }
-
-
-        void prepareMinMaxArrays(string table)
-        {
-            SqlConnection conn;
-            SqlDataReader rdr = null;
-            double rdngMaxTemp;
-            double rdngMinTemp;
-            DateTime rdngDate;
-            DateTime rightNow = DateTime.Now;
-            conn = new SqlConnection(connectionString);  //connectionString is a global ATM
-
-            System.Text.StringBuilder sb = new System.Text.StringBuilder();
-            sb.AppendLine($"select cast(TIME as date) as date, min(TEMP) as mintemp, max(TEMP) as maxtemp ");
-            sb.AppendLine($" from {table} pvh ");
-            sb.AppendLine($" group by cast(TIME as date) ");
-            sb.AppendLine($" order by 1 DESC ");
-            sb.AppendLine($" ");
-            string sqlQuery = sb.ToString();
-            SqlCommand getReadings = new SqlCommand(sqlQuery, conn);
-            conn.Open();
-            rdr = getReadings.ExecuteReader();
-
-            while (rdr.Read())
-            {
-                // get the results of each column
-                rdngDate = (DateTime)rdr["date"]; //this is the ime of thereading from the database
-                rdngMaxTemp = (double)rdr["maxtemp"];
-                rdngMinTemp = (double)rdr["mintemp"];
-
-                //---------------------------
-                if (table == "WXIN" && rdngDate.Month == rightNow.Month)
-                {
-                    tInMin[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
-                    tInMax[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
-                }
-                else if (table == "WXIN" && (rdngDate.Month == rightNow.Month - 1))
-                {
-                    tInMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
-                    tInMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
-                }
-
-                else if (table == "WXIN" && (rdngDate.Year == rightNow.Year - 1 && rdngDate.Month == 12)) //this is for last year if we are in January
-                {
-                    tInMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
-                    tInMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
-                }
-
-                //------------------------------
-                if (table == "WXOUT" && rdngDate.Month == rightNow.Month)
-                {
-                    tOutMin[rdngDate.Day] = rdngMinTemp + sc.ToutAdjust;
-                    tOutMax[rdngDate.Day] = rdngMaxTemp + sc.ToutAdjust;
-                }
-                else if (table == "WXOUT" && (rdngDate.Month == rightNow.Month - 1 ))
-                {
-                    tOutMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
-                    tOutMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
-                }
-
-                else if (table == "WXOUT" && (rdngDate.Year == rightNow.Year - 1 && rdngDate.Month == 12)) //this is for last year if we are in January
-                {
-                    tOutMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
-                    tOutMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
-                }
-
-
-
-
-                //-----------------------------------------------
-                if (table == "WXPOOL" && rdngDate.Month == rightNow.Month)
-                {
-                    tPoolMin[rdngDate.Day] = rdngMinTemp + sc.TpoolAdjust;
-                    tPoolMax[rdngDate.Day] = rdngMaxTemp + sc.TpoolAdjust;
-                }
-                else if (table == "WXPOOL" && (rdngDate.Month == rightNow.Month - 1))
-                {
-                    tPoolMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
-                    tPoolMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
-                }
-
-                else if (table == "WXPOOL" && (rdngDate.Year == rightNow.Year - 1 && rdngDate.Month == 12)) //this is for last year if we are in January
-                {
-                    tPoolMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
-                    tPoolMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
-                }
-
-
-
-
-
-                //----------------------------------------------------------
-                if (table == "WXROVER" && rdngDate.Month == rightNow.Month)
-                {
-                    tRoverMin[rdngDate.Day] = rdngMinTemp + sc.TroverAdjust;
-                    tRoverMax[rdngDate.Day] = rdngMaxTemp +sc.TroverAdjust;
-                }
-                else if (table == "WXROVER" && (rdngDate.Month == rightNow.Month - 1))
-                {
-                    tRoverMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
-                    tRoverMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
-                }
-
-                else if (table == "WXROVER" && (rdngDate.Year == rightNow.Year - 1 && rdngDate.Month == 12)) //this is for last year if we are in January
-                {
-                    tRoverMinLM[rdngDate.Day] = rdngMinTemp + sc.TinAdjust;
-                    tRoverMaxLM[rdngDate.Day] = rdngMaxTemp + sc.TinAdjust;
-                }
-
-
-            }
-
-            conn.Close();
-            MinMaxHTML();
-            MinMaxHTMLLastmonth();
         }
 
 
@@ -1791,8 +1805,8 @@ namespace WXsensorWebPage
                 }
                 sw.WriteLine("        ticks: { ");
                 sw.WriteLine("       min: 0, ");
-                //sw.WriteLine($"       min: {br.BestMin - 5}, ");
-                sw.WriteLine("        stepSize: 2, ");
+                sw.WriteLine("       max: 50, ");
+                sw.WriteLine("        stepSize: 1, ");
                 sw.WriteLine("        beginAtZero:false}");
                 sw.WriteLine("      }],"); //end of yAxes
                 sw.WriteLine("     xAxes: [{ ");
@@ -2101,8 +2115,8 @@ namespace WXsensorWebPage
                 }
                 sw.WriteLine("        ticks: { ");
                 sw.WriteLine("       min: 0, ");
-                //sw.WriteLine($"       min: {br.BestMin - 5}, ");
-                sw.WriteLine("        stepSize: 2, ");
+                sw.WriteLine("       max: 50, ");
+                sw.WriteLine("        stepSize: 1, ");
                 sw.WriteLine("        beginAtZero:false}");
                 sw.WriteLine("      }],"); //end of yAxes
                 sw.WriteLine("     xAxes: [{ ");
