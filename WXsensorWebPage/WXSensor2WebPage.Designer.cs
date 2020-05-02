@@ -272,7 +272,7 @@
         private System.Windows.Forms.Label label7;
         private System.Windows.Forms.Label label8;
         private System.Windows.Forms.Label label9;
-        private System.Windows.Forms.TextBox txtWebUpdateCycle;
+        public System.Windows.Forms.TextBox txtWebUpdateCycle;  //had to change this from private to public for reading in classIndexHtml
         private System.Windows.Forms.CheckBox chkTweet;
     }
 }
