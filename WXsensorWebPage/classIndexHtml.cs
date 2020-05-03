@@ -164,44 +164,44 @@ namespace WXsensorWebPage
                 sw.WriteLine($"<td class=button_green>Temp: {br.BcurrentTemp}</td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_green>Press: {br.BcurrentPress}</td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_green>Humid: {br.BcurrentHumid}</td><td class=button_white></td>");
-                sw.WriteLine($"<td class=button_green>Wind km/h {br.BWindSpeed}</td><td class=button_white></td>");
+                sw.WriteLine($"<td class=button_green>Wind: {br.BWindSpeed} Gust: {br.BWindGust} km/h</td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_green> Direction {br.BWindDir} </td><td class=button_white></td>");
 
                 sw.WriteLine($"<td class=button_blue>Rover Temp: {cr.cTEMPRover}</td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_blue>Pool Temp: {cr.cTEMPPool} </td><td class=button_white></td>");
                 sw.WriteLine("</tr></table>");
 
-                List<int> daylight = new List<int> { 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }; //list of the hours of daylight
+                //List<int> daylight = new List<int> { 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19 }; //list of the hours of daylight
 
-                sw.WriteLine("<center>");
+                //sw.WriteLine("<center>");
 
-                if (cr.cTEMPOut >= hc.ThighTemp && daylight.Contains(rightNow.Hour))
-                {//close house hot and its daylight
-                    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Close House: Its HOT: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
-                }
-                // add a control for airconditioning on or off - say 27 degrees
-                else if (br.BestMax >= hc.ThighTemp && daylight.Contains(rightNow.Hour) && cr.cTEMPOut > hc.ThighTemp - 3 && td.trend1 > 1)
-                {//air con on its hot in the house, its daylight
-                    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"CloseUp, AirCon On: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
-                }
-                else if (cr.cTEMPOut < cr.cTEMPIn && td.trend2 < 1)
-                { //trending cool
-                    sw.WriteLine($"<input type=button class=button_greenInfo onclick=location.href = '';  target=_blank value=\"OpenUp:Its cooler outside: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
-                }
-                else if (td.trend1 < 1 && cr.cTEMPIn < hc.ThighTemp)
-                {
-                    sw.WriteLine($"<input type=button class=button_greenInfo onclick=location.href = '';  target=_blank value=\"OpenUp: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
-                }
+                //if (cr.cTEMPOut >= hc.ThighTemp && daylight.Contains(rightNow.Hour))
+                //{//close house hot and its daylight
+                //    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Close House: Its HOT: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                //}
+                //// add a control for airconditioning on or off - say 27 degrees
+                //else if (br.BestMax >= hc.ThighTemp && daylight.Contains(rightNow.Hour) && cr.cTEMPOut > hc.ThighTemp - 3 && td.trend1 > 1)
+                //{//air con on its hot in the house, its daylight
+                //    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"CloseUp, AirCon On: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                //}
+                //else if (cr.cTEMPOut < cr.cTEMPIn && td.trend2 < 1)
+                //{ //trending cool
+                //    sw.WriteLine($"<input type=button class=button_greenInfo onclick=location.href = '';  target=_blank value=\"OpenUp:Its cooler outside: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                //}
+                //else if (td.trend1 < 1 && cr.cTEMPIn < hc.ThighTemp)
+                //{
+                //    sw.WriteLine($"<input type=button class=button_greenInfo onclick=location.href = '';  target=_blank value=\"OpenUp: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                //}
 
-                else if (br.BestMax <= hc.TlowTemp)
-                { //close the house - its cold
-                    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Close House COLD: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
-                }
-                else if (!daylight.Contains(rightNow.Hour) && cr.cTEMPIn < hc.TlowTemp)
-                {//cold light the fire
-                    sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Its Too Cold, Light the fire.: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
-                }
-                else sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Unknown:\" />");
+                //else if (br.BestMax <= hc.TlowTemp)
+                //{ //close the house - its cold
+                //    sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"Close House COLD: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                //}
+                //else if (!daylight.Contains(rightNow.Hour) && cr.cTEMPIn < hc.TlowTemp)
+                //{//cold light the fire
+                //    sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Its Too Cold, Light the fire.: {Math.Round(cr.cTEMPOut - cr.cTEMPIn, 0)}\" />");
+                //}
+                //else sw.WriteLine($"<input type=button class=button_blueInfo onclick=location.href = '';  target=_blank value=\"Unknown:\" />");
 
                 ////sw.WriteLine($"<input type=button class=button_white onclick=location.href = '';  target=_blank value=\"Out Min: {dailyMin}, OutMax: {dailyMax}, In Min: {dailyInMin} In Max: {dailyInMax} \" />");
                 //sw.WriteLine("<div id = \"rigref-solar-widget\"><a href=\"https://rigreference.com/solar\" target = \"_blank\" ><img src=\"https://rigreference.com/solar/img/wide\" border=\"0\"></a></div>");
@@ -217,7 +217,7 @@ namespace WXsensorWebPage
                 sw.WriteLine($"<input type=button class=button_infoIn onclick=\"location.href='minmax.html';\"  target=\"_blank\" value=\"InMin:{mm.wxInMin} @ {mm.wxInMinHour} InMax:{mm.wxInMax} @ {mm.wxInMaxHour}\" />");
                 //sw.WriteLine($"<input type=button class=button_infoIn onclick=\"location.href='c:\\inetpub\\wwwroot\\minmax.html';\"  target=\"_blank\" value=\"InMin:{mm.wxInMin} @ {mm.wxInMinHour} InMax:{mm.wxInMax} @ {mm.wxInMaxHour}\" />");
                 sw.WriteLine($"<input type=button class=button_infoOut onclick=\"location.href='minmaxLastmonth.html';\"  target=_blank value=\"OutMin:{mm.wxOutMin} @ {mm.wxOutMinHour} OutMax:{mm.wxOutMax} @ {mm.wxOutMaxHour}\" />");
-                sw.WriteLine($"<input type=button class=button_infoOut onclick=\"location.href='minmaxLastmonth.html';\"  target=_blank value=\"Fcast:{br.BestRainfall}\" />");
+                sw.WriteLine($"<input type=button class=button_infoOut onclick=\"location.href='windRadar.html';\"  target=_blank value=\"Fcast:{br.BestRainfall}\" />");
 
 
                 sw.WriteLine("</center>");

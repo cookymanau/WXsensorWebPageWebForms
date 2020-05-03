@@ -1,4 +1,4 @@
-﻿#define MYTEST
+﻿//#define MYTEST
 //the MYTEST sets the ticker to 5000mS line 155
 
 #define VERBOSELOGGING
@@ -113,7 +113,7 @@ namespace WXsensorWebPage
             public double BWindSpeed;
             public string BWindDir;
             public double Brainfall;
-            
+            public double BWindGust;
         }
         BOMReadings br = new BOMReadings();
 
@@ -337,15 +337,19 @@ namespace WXsensorWebPage
                 classIndexHtml chtm = new classIndexHtml();
                 chtm.createHTMLpage(br, cr, mm, ss, sws, hc, td);
 
-
-
                 classIndexHtml cih = new classIndexHtml();
-
                 cih.createHTMLpage(br, cr, mm, ss, sws, hc, td );
+
+                 //this is the radar plot of wind and wind direction , we should make it so that it only gets todays data here
+                classRadarChart crc = new classRadarChart();
+                crc.getData();  //so we instantiate the class as an object and call the getdata method t get the data we want and call the html from there
+
+
+
 
 
                 // this is the main page index.html
-               // writeToHTML();  //write the index.html page
+                // writeToHTML();  //write the index.html page
             }
             // this is the Twitter announcement.
             if ((recCnt % 120 == 0 || recCnt == 2) && chkTweet.Checked) //every 90 mins and just after startup  IFFT have changed their rules to 26 tweets per day
@@ -710,7 +714,7 @@ namespace WXsensorWebPage
             try
             {
                 conn = new SqlConnection(connectionString);  //connectionString is a global ATM
-                SqlCommand getReadings = new SqlCommand($"select  top 1 TIME, TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from {table}   order by TIME DESC", conn);
+                SqlCommand getReadings = new SqlCommand($"select  top 1 TIME, TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX,WINDGUST from {table}   order by TIME DESC", conn);
                 //select top 1 TIME,TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from WXBOMGHILL where  datepart(hh, TIME) = '9'   order by TIME DESC
                 conn.Open();
                 rdr = getReadings.ExecuteReader();
@@ -723,6 +727,7 @@ namespace WXsensorWebPage
                     br.BWindSpeed = (double)rdr["WINDSPEED"];
                     br.BWindDir = (string)rdr["WINDDIR"];
                     br.Brainfall = (double)rdr["RAINFALL"];
+                    br.BWindGust = (double)rdr["WINDGUST"];
                     //br.BestMax = (double)rdr["ESTBOMMAX"];  //dont want to do this all the time -once per day by readBOMMInMaxFromdatabase() higher up
                     //br.BestMin = (double)rdr["ESTBOMMIN"];
                 }
@@ -741,7 +746,7 @@ namespace WXsensorWebPage
    //         try
    //         {
                 conn = new SqlConnection(connectionString);  //connectionString is a global ATM
-                SqlCommand getReadings = new SqlCommand($"select  top 1 * from {table} where [ISOYEAR] = convert(char(10), getdate(), 112)", conn);
+                SqlCommand getReadings = new SqlCommand($"select  top 1 * from {table} where [ISOYEAR] = convert(char(10), getdate(), 112) order by [TIME] DESC", conn);
                 //select top 1 TIME,TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from WXBOMGHILL where  datepart(hh, TIME) = '9'   order by TIME DESC
                 conn.Open();
                 rdr = getReadings.ExecuteReader();
@@ -1152,325 +1157,18 @@ namespace WXsensorWebPage
 
             classMinMaxHtml cmm = new classMinMaxHtml(1);
             cmm.MinMaxHTML();  //create the webpage
-                               //MinMaxHTML();  //create the webpage  //shifted this to new class
+                               
 
             classMinMaxHtml cmmLM = new classMinMaxHtml(2);
-            //cmmLM.MinMaxHTMLLM(); //create the web page
             cmmLM.MinMaxHTML();  //create the webpage
+
+            classRadarChart crc = new classRadarChart();
+            crc.getData();  //so we instantiate the class as an object and call the getdata method t get the data we want and call the html from there
+
         }// end of the function
 
-        //------------------------------------------------------------------------------------------------------------------------------
+      
         
-        /// <summary>
-        /// Minimums the maximum HTML lastmonth web page.
-        /// </summary>
-        //void MinMaxHTMLLastmonth()
-        //{
-
-        //    // var pathWithEnv = @"%USERPROFILE%\AppData\Local\MyProg\settings.file";
-        //    var pathWithEnv = @"c:\inetpub\wwwroot\minmaxLastmonth.html";
-        //    var filePath = Environment.ExpandEnvironmentVariables(pathWithEnv);
-        //    string updateCycle;  //= txtWebUpdateCycle.Text;
-        //    using (StreamWriter sw = new StreamWriter(filePath, append: false))  //using controls low-level resource useage
-        //    {
-        //        string now = DateTime.Now.ToString("h:mm:ss tt");
-        //        string fullDate = DateTime.Now.ToString("dd/MM/yyyy h:mm:ss tt");
-        //        updateCycle = txtWebUpdateCycle.Text;
-
-        //        sw.WriteLine("<HTML><HEAD>");
-        //        sw.WriteLine("<title>SCARP Weather</title>");
-        //        sw.WriteLine($"<meta http-equiv = \"refresh\" content = \"{updateCycle}\" >");// 1 is 1 second  60 is 60 seconds
-
-        //        sw.WriteLine(@"<meta name=""viewport"" content=""width = device - width, initial - scale = 1"">");
-        //        sw.WriteLine("<style>");
-        //        sw.WriteLine("* {box-sizing: border-box; } ");
-        //        sw.WriteLine(".column {");
-        //        sw.WriteLine("float: left;");
-        //        sw.WriteLine("width: 50%;");
-        //        sw.WriteLine("padding: 10px; }");
-
-        //        sw.WriteLine(".row:after {");
-        //        sw.WriteLine("content: \"\";");
-        //        sw.WriteLine("display: table;");
-        //        sw.WriteLine("clear: both;}");
-
-        //        sw.WriteLine("table.t1 { border-collapse: collapse; width: 100%;}");
-        //        sw.WriteLine("table.t1 th{ font-size:24px;}");
-        //        sw.WriteLine("table.t1 td{ font-size:16px; height: 20px; padding: 5px; border-bottom:1px solid #ddd;}");
-        //        sw.WriteLine("table.t2 { border-collapse: collapse; width: 50%;}");
-        //        sw.WriteLine("table.t2 th{ font-size:24px;}");
-        //        sw.WriteLine("table.t2 td{ font-size:16px; height: 20px; padding: 5px; border-bottom:1px solid #ddd;}");
-
-        //        sw.WriteLine("");
-        //        sw.WriteLine(".button_green{background-color: green; color: white; font-size: 14px;}");  //a bit of css to use to colour the buttons as required
-        //        sw.WriteLine(".button_red{background-color: red; color: black; font-size: 14x;}");
-        //        sw.WriteLine(".button_white{background-color: white; color: black; font-size: 14px;}");
-        //        sw.WriteLine(".button_yellow{background-color: yellow; color: black; font-size: 14px;}");
-        //        sw.WriteLine(".button_blue{background-color: blue; color: white; font-size: 14px;}");
-
-        //        sw.WriteLine(".button_blueInfo{background-color: blue; color: white;font-size: 14px; padding: 4px 10px;}");
-        //        sw.WriteLine(".button_redInfo{background-color: red; color: white;font-size: 14px; padding: 4px 10px;}");
-        //        sw.WriteLine(".button_greenInfo{background-color: green; color: white;f1ont-size: 14px; padding: 4px 10px;}");
-
-        //        sw.WriteLine(".button_info{background-color: gray; color: blue;font-size: 14px; padding: 4px 10px;}");
-        //        sw.WriteLine(".button_infoIn{background-color: white; color: blue;font-size: 14px; padding: 4px 10px;}");
-        //        sw.WriteLine(".button_infoOut{background-color: white; color: red;font-size: 14px; padding: 4px 10px;}");
-
-        //        sw.WriteLine(".btn-group button{background-color: #4CAF50; border: 1px solid green; color: white; padding: 10px 24px; cursor:pointer; float:left;}");
-        //        sw.WriteLine("</style>");
-        //        //this is the library for charts.js
-        //        sw.WriteLine(@"<script src=""https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js""></script>");
-        //        sw.WriteLine(@"</head><body>");
-        //        sw.WriteLine("<center><h2>Scarp Weather - Minimums and Maximums for the Previous month</H2>");
-
-        //        sw.WriteLine("</center>");
-
-        //        sw.WriteLine(@"<span style=""font-family:Arial;font-size:45px;>""");
-        //        sw.WriteLine(@"</span>");
-        //        //sw.WriteLine($"<input type=button  style=float: right; class=button_white onclick=location.href = '';  target=_blank value=\"OutMin: {dailyMin} OutMax: {dailyMax} InMin: {dailyInMin} InMax: {dailyInMax} \" />");
-        //        sw.WriteLine("<br>");
-        //        sw.WriteLine("</center>");
-        //        sw.WriteLine("<p>");
-        //        sw.WriteLine("</ul><center>");
-
-        //        //the graph
-        //        sw.WriteLine("<canvas id=\"line-chart\" width=\"300\" height = \"130\" ></canvas>");
-        //        //sw.WriteLine("<canvas id=\"mixed-chart\" width=\"300\" height = \"110\" ></canvas>");
-        //        sw.WriteLine("<script>");
-        //        sw.WriteLine(@"new Chart(document.getElementById(""line-chart""), {");
-        //        sw.WriteLine("type: 'bar',");
-        //        sw.WriteLine("data: {");
-        //        sw.WriteLine(@"labels: [""1st"",""2nd"",""3rd"",""4th"",""5th"",""6th"",""7th"",""8th"",""9th"",""10th"",""11th"",""12th"",""13th"",""14th"",""15"",""16"",""17"",""18th"",""19"",""20"",""21"",""22"",""23"",""24"",""25"",""26"",""27"",""28"",""29"",""30"",""31""],");
-        //        sw.WriteLine("datasets: [{");
-
-        //        //IN Minimums this month
-        //        sw.WriteLine("label: 'In Minimum',");
-        //        sw.WriteLine("id: \"y-axis-0\",");
-        //        sw.WriteLine("backgroundColor: [\"blue\"],");
-        //        sw.Write($"data:[");
-        //        for (int i = 0; i < 32; i++)
-        //        {
-        //            if (tInMinLM[i] > 0)
-        //            {
-        //                sw.Write($"{tInMinLM[i]},");
-        //            }
-        //            else if (tInMinLM[i] == 0)
-        //            {
-        //                sw.Write($" ,");
-        //            }
-
-        //        }
-        //        sw.WriteLine(" ],");
-        //        sw.WriteLine("borderColor: [\"blue\"],");
-        //        sw.WriteLine("pointRadius: 2,");
-        //        sw.WriteLine("fill:false,");
-        //        sw.WriteLine("type: 'line' ");
-        //        sw.WriteLine("},{");
-
-        //        //In Maximums this month
-        //        sw.WriteLine("label: 'In Max',");
-        //        sw.WriteLine("id: \"y-axis-0\",");
-        //        sw.WriteLine("backgroundColor: [\"blue\"],");
-        //        sw.Write($"data:[");
-        //        for (int i = 0; i < 32; i++)
-        //        {
-        //            if (tInMaxLM[i] > 0)
-        //            {
-        //                sw.Write($"{tInMaxLM[i]},");
-        //            }
-        //            else if (tInMaxLM[i] == 0)
-        //            {
-        //                sw.Write($" ,");
-        //            }
-
-        //        }
-        //        sw.WriteLine(" ],");
-        //        sw.WriteLine("borderColor: [\"blue\"],");
-        //        sw.WriteLine("pointRadius: 2,");
-        //        sw.WriteLine("fill:false,");
-        //        sw.WriteLine("type: 'line' ");
-        //        sw.WriteLine("},{");
-        //        //OUT MINimums this month
-        //        sw.WriteLine("label: 'Out Minimum',");
-        //        sw.WriteLine("id: \"y-axis-0\",");
-        //        sw.WriteLine("backgroundColor: [\"red\"],");
-        //        sw.Write($"data:[");
-        //        for (int i = 0; i < 32; i++)
-        //        {
-        //            if (tOutMinLM[i] > 0)
-        //            {
-        //                sw.Write($"{tOutMinLM[i]},");
-        //            }
-        //            else if (tOutMinLM[i] == 0)
-        //            {
-        //                sw.Write($" ,");
-        //            }
-
-        //        }
-        //        sw.WriteLine(" ],");
-        //        sw.WriteLine("borderColor: [\"red\"],");
-        //        sw.WriteLine("pointRadius: 2,");
-        //        sw.WriteLine("fill:false,");
-        //        sw.WriteLine("type: 'line' ");
-        //        sw.WriteLine("},{");
-        //        // OUT Max 
-        //        sw.WriteLine("label: \"Out Maximum\",");
-        //        sw.WriteLine("type: \"line\",");
-        //        sw.WriteLine("backgroundColor: [\"red\"],");
-        //        sw.Write($"data:[");
-        //        for (int i = 0; i < 32; i++)
-        //        {
-        //            if (tOutMaxLM[i] > 0)
-        //            {
-        //                sw.Write($"{tOutMaxLM[i]},");
-        //            }
-        //            else if (tOutMaxLM[i] == 0)
-        //            {
-        //                sw.Write($" ,");
-        //            }
-        //        }
-        //        sw.WriteLine(" ],");
-        //        sw.WriteLine("borderColor: [\"red\"],");
-        //        sw.WriteLine("pointRadius: 2,");
-        //        sw.WriteLine("fill: false");
-        //        sw.WriteLine(" },{");
-
-        //        sw.WriteLine("label: \"Rover Minimum\",");
-        //        sw.WriteLine("type: \"line\",");
-        //        sw.WriteLine("backgroundColor: \"#CCCC00\",");
-        //        sw.Write($"data:[");
-        //        for (int i = 0; i < 32; i++)
-        //        {
-        //            if (tRoverMinLM[i] > 0)
-        //            {
-        //                sw.Write($"{tRoverMinLM[i]},");
-        //            }
-        //            else if (tRoverMinLM[i] == 0)
-        //            {
-        //                sw.Write($" ,");
-        //            }
-        //        }
-        //        sw.WriteLine(" ],");
-        //        sw.WriteLine("borderColor: \"#CCCC00\",");
-        //        sw.WriteLine("pointRadius: 2,");
-        //        sw.WriteLine("fill: false");
-        //        sw.WriteLine(" },{");//-----------------------------
-        //        sw.WriteLine("label: \"Rover Maximum\",");
-        //        sw.WriteLine("type: \"line\",");
-        //        sw.WriteLine("backgroundColor: \"#CCCC00\",");
-        //        sw.Write($"data:[");
-        //        for (int i = 0; i < 32; i++)
-        //        {
-        //            if (tRoverMaxLM[i] > 0)
-        //            {
-        //                sw.Write($"{tRoverMaxLM[i]},");
-        //            }
-        //            else if (tRoverMaxLM[i] == 0)
-        //            {
-        //                sw.Write($" ,");
-        //            }
-        //        }
-        //        sw.WriteLine(" ],");
-        //        sw.WriteLine("borderColor: \"#CCCC00\",");
-        //        sw.WriteLine("pointRadius: 2,");
-        //        sw.WriteLine("fill: false");
-        //        //sw.WriteLine("}");
-        //        //sw.WriteLine("]");
-        //        sw.WriteLine(" },{"); //-----------------------------------
-        //        sw.WriteLine("label: \"Pool Minimum\",");
-        //        sw.WriteLine("type: \"line\",");
-        //        sw.WriteLine("backgroundColor: \"cyan\",");
-        //        sw.Write($"data:[");
-        //        for (int i = 0; i < 32; i++)
-        //        {
-        //            if (tPoolMinLM[i] > 0)
-        //            {
-        //                sw.Write($"{tPoolMinLM[i]},");
-        //            }
-        //            else if (tPoolMinLM[i] == 0)
-        //            {
-        //                sw.Write($" ,");
-        //            }
-        //        }
-        //        sw.WriteLine(" ],");
-        //        sw.WriteLine("borderColor: [\"cyan\"],");
-        //        sw.WriteLine("pointRadius: 2,");
-        //        sw.WriteLine("fill: false");
-        //        sw.WriteLine(" },{"); //------------------------------------
-        //        sw.WriteLine("label: \"Pool Maximum\",");
-        //        sw.WriteLine("type: \"line\",");
-        //        sw.WriteLine("backgroundColor: [\"cyan\"],");
-        //        sw.Write($"data:[");
-        //        for (int i = 0; i < 32; i++)
-        //        {
-        //            if (tPoolMaxLM[i] > 0)
-        //            {
-        //                sw.Write($"{tPoolMaxLM[i]},");
-        //            }
-        //            else if (tPoolMaxLM[i] == 0)
-        //            {
-        //                sw.Write($" ,");
-        //            }
-        //        }
-        //        sw.WriteLine(" ],");
-        //        sw.WriteLine("borderColor: \"cyan\",");
-        //        sw.WriteLine("pointRadius: 2,");
-        //        sw.WriteLine("fill: false");
-        //        sw.WriteLine("}"); //only here
-        //        sw.WriteLine("]");// only here
-        //        sw.WriteLine(" },");
-
-        //        // little bit lets you touch a legend item and turn it off
-        //        sw.WriteLine("options: {");
-        //        sw.WriteLine("responsive: true, ");
-        //        sw.WriteLine("legend: { display: true },");
-        //        sw.WriteLine("labels: {");
-        //        sw.WriteLine("      filter: function(legendItem, chartData) {");
-        //        sw.WriteLine("      if (legendItem.datasetIndex === 0) {");
-        //        sw.WriteLine("      return false;");
-        //        sw.WriteLine("             }");
-        //        sw.WriteLine("   return true;");
-        //        sw.WriteLine("       }},");
-
-        //        sw.WriteLine("title: {");
-        //        sw.WriteLine("    display: false,");
-        //        sw.WriteLine("    text: 'Scarp Weather V2'");
-        //        sw.WriteLine("    }, ");
-        //        sw.WriteLine("scales: {");
-        //        if (DateTime.Now.Hour > 12)  //swap the y Axes ticks and scale to the rhs of the graph after midday
-        //        {
-        //            sw.WriteLine("     yAxes: [{ id: 'y-axis-0', type: 'linear',position: 'right' , ");
-        //        }
-        //        else
-        //        {
-        //            sw.WriteLine("     yAxes: [{ id: 'y-axis-0', type: 'linear',position: 'left' , ");
-        //        }
-        //        sw.WriteLine("        ticks: { ");
-        //        sw.WriteLine("       min: 0, ");
-        //        sw.WriteLine("       max: 50, ");
-        //        sw.WriteLine("        stepSize: 1, ");
-        //        sw.WriteLine("        beginAtZero:false}");
-        //        sw.WriteLine("      }],"); //end of yAxes
-        //        sw.WriteLine("     xAxes: [{ ");
-        //        sw.WriteLine("         barThickness: 10,}]");
-        //        sw.WriteLine("");
-        //        sw.WriteLine("         }");//end of xAxes
-        //        sw.WriteLine("      }"); //end of scales
-        //        sw.WriteLine(" });"); //end of options
-
-        //        sw.WriteLine("canvas.onclick = function (evt) {");
-        //        sw.WriteLine("var points = line-chart.getPointsAtEvent(evt);");
-        //        sw.WriteLine("alert(line-chart.datasets[0].points.indexOf(points[0])); };");
-        //        sw.WriteLine("");
-        //        sw.WriteLine("  </script>");
-        //        sw.WriteLine(@"<span style=""font-family:Arial;font-size:12px;>""");
-        //        sw.WriteLine($"<p>Scarp Weather - Readings from Lesmurdie {fullDate}");
-        //        sw.WriteLine("</center>");
-        //        sw.WriteLine("</span></body></html>");
-        //        sw.Close();
-        //    }
-        //}
-
 
 
     } //end of program
