@@ -23,11 +23,14 @@ namespace WXsensorWebPage
         // but maybe I can create a global here and set it from the function
         int gInt = 0;
 
-
+        string wGstColor = "";
 
         public static double[] windSpdMonth = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         public static double[] windSpdToday = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-       // public static string[] windDirMonth = new string[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        public static double[] wGst = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
+
+
 
         public  classRadarChart() //constructors cant return anything
         {
@@ -84,27 +87,9 @@ union
 SELECT isnull((select max(WINDSPEED)  as WINDSPEED from WXBOMGHILL  where  WINDDIR = 'NW' and convert(date, TIME)  >= convert(date, getdate()-{gInt}) group by WINDDIR),0) AS WINDSPEED,'NW' as WINDDIR
 union
 SELECT isnull((select max(WINDSPEED)  as WINDSPEED from WXBOMGHILL  where  WINDDIR = 'NNW' and convert(date, TIME)  >= convert(date, getdate()-{gInt}) group by WINDDIR),0) AS WINDSPEED,'NNW' as WINDDIR
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ";
-
+                Array.Clear(windSpdMonth, 0, 32);
                 SqlCommand getReadings = new SqlCommand(fred, conn);
-
-
-                //Array.Clear(tArray, 0, 24);
                 conn.Open();
                 rdr = getReadings.ExecuteReader();
                 while (rdr.Read())
@@ -122,8 +107,6 @@ SELECT isnull((select max(WINDSPEED)  as WINDSPEED from WXBOMGHILL  where  WINDD
 
         public void getTodaysData()
         {
-
-
             {
                 SqlConnection conn;
                 SqlDataReader rdr = null;
@@ -166,36 +149,95 @@ union
 SELECT isnull((select max(WINDSPEED)  as WINDSPEED from WXBOMGHILL  where  WINDDIR = 'NW' and convert(date, TIME) = convert(date, getdate()) group by WINDDIR),0) AS WINDSPEED,'NW' as WINDDIR
 union
 SELECT isnull((select max(WINDSPEED)  as WINDSPEED from WXBOMGHILL  where  WINDDIR = 'NNW' and convert(date, TIME) = convert(date, getdate()) group by WINDDIR),0) AS WINDSPEED,'NNW' as WINDDIR
-
 ";
 
+                Array.Clear(windSpdToday, 0, 32);
                 SqlCommand getReadings = new SqlCommand(sqlQuery, conn);
-
-
-                //Array.Clear(tArray, 0, 24);
                 conn.Open();
                 rdr = getReadings.ExecuteReader();
                 while (rdr.Read())
                 {
                     windSpdToday[cnt] = (double)rdr["WINDSPEED"];
-                    // windDirMonth[cnt] = (string)rdr["WINDDIR"];
                     cnt += 1;
                 }
                 conn.Close();
             }
-            plotRadar();  //plot the graph
+            getWindGust();  //plot the graph
         }
 
+        public void getWindGust()
+        {
+            SqlConnection conn;
+            SqlDataReader rdr = null;
+            DateTime rdngTime;
+            DateTime rightNow = DateTime.Now;
+            int cnt = 0;
+            string gustDir="";
+            double wGustkmh = 0;
+
+            Dictionary<string, int> dirs = new Dictionary<string, int>()
+            {
+                {"N",0},
+                {"NNE",1},
+                {"NE",2},
+                {"ENE",3},
+                {"E",4},
+                {"ESE",5},
+                {"SE",6},
+                {"SSE",7},
+                {"S",8},
+                {"SSW",9},
+                {"SW",10},
+                {"WSW",11},
+                {"W",12},
+                {"WNW",13},
+                {"NW",14},
+                {"NNW",15},
+            };
 
 
+            Array.Clear(wGst, 0, 32);
+
+
+            conn = new SqlConnection(connectionString);  //connectionString is a global ATM
+                                                         //takes care of null values, this query
+            string sqlQuery = $@"  select  top 1 WINDGUST  , WINDDIR,TIME from WXBOMGHILL   order by TIME DESC";
+            SqlCommand getReadings = new SqlCommand(sqlQuery, conn);
+            conn.Open();
+            rdr = getReadings.ExecuteReader();
+            while (rdr.Read())
+            {
+                wGustkmh = (double)rdr["WINDGUST"];
+                gustDir = rdr["WINDDIR"].ToString();
+            }
+
+            if (wGustkmh > 50)
+            {
+                wGstColor = "rgba(255,0,0,1)";//red
+            }
+            else
+            {
+                wGstColor = "rgba(0,0,255,1)";//blue
+            }
+
+            //now we have to put the wGustkmh intot he correct slot in the grid
+
+            foreach (var dir in dirs)
+            {
+                if (dir.Key == gustDir)
+                    wGst[dir.Value] = wGustkmh;
+            }
+            plotRadar();
+        }//end
 
 
         public void plotRadar()
         {
             var pathWithEnv = @"c:\inetpub\wwwroot\windRadar.html";
             var filePath = Environment.ExpandEnvironmentVariables(pathWithEnv);
-            //string updateCycle;  //= txtWebUpdateCycle.Text;
-            //string twuc = ((WXSensor2WebPage)f).txtWebUpdateCycle.Text;
+
+            
+
 
             using (StreamWriter sw = new StreamWriter(filePath, append: false))  //using controls low-level resource useage
             {
@@ -236,9 +278,20 @@ SELECT isnull((select max(WINDSPEED)  as WINDSPEED from WXBOMGHILL  where  WINDD
           pointBorderColor: ""#fff"", ");
           
 sw.WriteLine($@"data: [{ windSpdToday[0]}, { windSpdToday[1]}, { windSpdToday[2]}, { windSpdToday[3]}, { windSpdToday[4]},{ windSpdToday[5]},{ windSpdToday[6]},{ windSpdToday[7]}
-                      ,{ windSpdToday[8]}, { windSpdToday[9]}, { windSpdToday[10]},{ windSpdToday[11]},{ windSpdToday[12]},{ windSpdToday[13]},{ windSpdToday[14]},{ windSpdToday[15]}]"); 
-sw.WriteLine(@"         }
-      ]
+                      ,{ windSpdToday[8]}, { windSpdToday[9]}, { windSpdToday[10]},{ windSpdToday[11]},{ windSpdToday[12]},{ windSpdToday[13]},{ windSpdToday[14]},{ windSpdToday[15]}]");
+                sw.WriteLine(@"         } ");
+                sw.WriteLine(@", { ");
+                sw.WriteLine(@"label: ""WindGust"", ");
+                sw.WriteLine(@"fill: false,");
+                sw.WriteLine(@"pointRadius: 7,");
+                sw.WriteLine(@"pointStyle: ""circle"",");
+                sw.WriteLine(@"backgroundColor: ""rgba(255,99,132,0.2)"",");
+                sw.WriteLine($@"borderColor: ""{wGstColor}"",");
+                sw.WriteLine(@"pointBorderColor: ""#fff"",");
+                sw.WriteLine($@"pointBackgroundColor: ""{wGstColor}"",");
+                sw.WriteLine(@"pointBorderColor: ""#fff"", ");
+               sw.WriteLine($@"data: [{wGst[0]}, {wGst[1]}, {wGst[2]}, {wGst[3]}, {wGst[4]}, {wGst[5]}, {wGst[6]}, {wGst[7]}, {wGst[8]}, {wGst[9]}, {wGst[10]}, {wGst[11]}, {wGst[12]}, {wGst[13]}, {wGst[14]}, {wGst[15]}]");
+sw.WriteLine(@"      }]
     },
     options: {
       title: {

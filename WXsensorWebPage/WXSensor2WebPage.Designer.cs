@@ -238,7 +238,7 @@
             this.txtWindChart.Name = "txtWindChart";
             this.txtWindChart.Size = new System.Drawing.Size(32, 20);
             this.txtWindChart.TabIndex = 24;
-            this.txtWindChart.Text = "31";
+            this.txtWindChart.Text = "3";
             // 
             // WXSensor2WebPage
             // 
