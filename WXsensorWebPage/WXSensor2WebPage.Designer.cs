@@ -47,6 +47,8 @@
             this.label9 = new System.Windows.Forms.Label();
             this.txtWebUpdateCycle = new System.Windows.Forms.TextBox();
             this.chkTweet = new System.Windows.Forms.CheckBox();
+            this.label3 = new System.Windows.Forms.Label();
+            this.txtWindChart = new System.Windows.Forms.TextBox();
             this.SuspendLayout();
             // 
             // label1
@@ -75,7 +77,6 @@
             this.btnStart.TabIndex = 2;
             this.btnStart.Text = "Start";
             this.btnStart.UseVisualStyleBackColor = true;
-           // this.btnStart.Click += new System.EventHandler(this.btnStart_Click);
             // 
             // btnExit
             // 
@@ -196,7 +197,7 @@
             // label9
             // 
             this.label9.AutoSize = true;
-            this.label9.Location = new System.Drawing.Point(9, 197);
+            this.label9.Location = new System.Drawing.Point(8, 197);
             this.label9.Name = "label9";
             this.label9.Size = new System.Drawing.Size(170, 13);
             this.label9.TabIndex = 17;
@@ -204,7 +205,7 @@
             // 
             // txtWebUpdateCycle
             // 
-            this.txtWebUpdateCycle.Location = new System.Drawing.Point(189, 194);
+            this.txtWebUpdateCycle.Location = new System.Drawing.Point(181, 194);
             this.txtWebUpdateCycle.Name = "txtWebUpdateCycle";
             this.txtWebUpdateCycle.Size = new System.Drawing.Size(32, 20);
             this.txtWebUpdateCycle.TabIndex = 18;
@@ -222,11 +223,30 @@
             this.chkTweet.Text = "Tweet";
             this.chkTweet.UseVisualStyleBackColor = true;
             // 
+            // label3
+            // 
+            this.label3.AutoSize = true;
+            this.label3.Location = new System.Drawing.Point(8, 222);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(114, 13);
+            this.label3.TabIndex = 23;
+            this.label3.Text = "Wind Chart Total Days";
+            // 
+            // txtWindChart
+            // 
+            this.txtWindChart.Location = new System.Drawing.Point(181, 222);
+            this.txtWindChart.Name = "txtWindChart";
+            this.txtWindChart.Size = new System.Drawing.Size(32, 20);
+            this.txtWindChart.TabIndex = 24;
+            this.txtWindChart.Text = "31";
+            // 
             // WXSensor2WebPage
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(244, 227);
+            this.ClientSize = new System.Drawing.Size(244, 260);
+            this.Controls.Add(this.txtWindChart);
+            this.Controls.Add(this.label3);
             this.Controls.Add(this.chkTweet);
             this.Controls.Add(this.txtWebUpdateCycle);
             this.Controls.Add(this.label9);
@@ -274,6 +294,8 @@
         private System.Windows.Forms.Label label9;
         public System.Windows.Forms.TextBox txtWebUpdateCycle;  //had to change this from private to public for reading in classIndexHtml
         private System.Windows.Forms.CheckBox chkTweet;
+        private System.Windows.Forms.Label label3;
+        public System.Windows.Forms.TextBox txtWindChart; //changed from private to public
     }
 }
 

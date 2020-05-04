@@ -174,6 +174,9 @@ namespace WXsensorWebPage
         sensorStatus ss = new sensorStatus();
 
 
+
+        
+
         static double barMax = 0.0;
         string connectionString = @"Data Source=192.168.1.15\DAWES_SQL2008; Database = WeatherStation; User Id = WeatherStation; Password = Esp32a.b.;";
         static double tInAdjust, tOutAdjust, tRoverAdjust, tBOMadjust; //these are to calibrate the thermometers
