@@ -34,20 +34,10 @@ namespace WXsensorWebPage
         //private static readonly string twuc = ((WXSensor2WebPage)f).txtWebUpdateCycle.Text;  //YOU CANT DO THIS HERE.  Goes into the method
 
 
+
         public classIndexHtml(){} //constructor
 
-        public void test1()
-        { 
-        }
-
-
-
-            public void test(WXSensor2WebPage.CurrentReadings cr)
-        {
-            Console.WriteLine(cr.cTEMPOut.ToString());
-        }
-
-        /// <summary>
+          /// <summary>
         /// Writes the html for - the webpage.  This is the main web page - index.html
         /// </summary>
         public void createHTMLpage(WXSensor2WebPage.BOMReadings br,
@@ -164,9 +154,9 @@ namespace WXsensorWebPage
                 sw.WriteLine($"<td class=button_green>Temp: {br.BcurrentTemp}</td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_green>Press: {br.BcurrentPress}</td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_green>Humid: {br.BcurrentHumid}</td><td class=button_white></td>");
-                sw.WriteLine($"<td class=button_green>Wind: {br.BWindSpeed} Gust: {br.BWindGust} km/h</td><td class=button_white></td>");
-                sw.WriteLine($"<td class=button_green> Direction {br.BWindDir} </td><td class=button_white></td>");
-
+                sw.WriteLine($"<td class=button_green>Wind: {br.BWindSpeed} Gust: {br.BWindGust} km/h  Dir: {br.BWindDir}</td><td class=button_white></td>");
+               
+               // sw.WriteLine($"<td class=button_green> Direction {br.BWindDir} </td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_blue>Rover Temp: {cr.cTEMPRover}</td><td class=button_white></td>");
                 sw.WriteLine($"<td class=button_blue>Pool Temp: {cr.cTEMPPool} </td><td class=button_white></td>");
                 sw.WriteLine("</tr></table>");
@@ -213,7 +203,7 @@ namespace WXsensorWebPage
                     sw.WriteLine($"<input type=button class=button_redInfo onclick=location.href = '';  target=_blank value=\"High Wind - Lower Yagi:\" />");
                 }
 
-                sw.WriteLine($"<input type=button class=button_info onclick=location.href = '';  target=_blank value=\"SWS SFI:{sws.SFI} SSN:{sws.SSN} Ap:{sws.Ap} Kp:{sws.Kp} Xray:{sws.xRay} T:{sws.tIndex}\" />");
+                sw.WriteLine($"<input type=button class=button_infoIn onclick=location.href = '';  target=_blank value=\"SWS SFI:{sws.SFI} SSN:{sws.SSN} Ap:{sws.Ap} Kp:{sws.Kp} Xray:{sws.xRay} T:{sws.tIndex}\" />");
                 sw.WriteLine($"<input type=button class=button_infoIn onclick=\"location.href='minmax.html';\"  target=\"_blank\" value=\"InMin:{mm.wxInMin} @ {mm.wxInMinHour} InMax:{mm.wxInMax} @ {mm.wxInMaxHour}\" />");
                 //sw.WriteLine($"<input type=button class=button_infoIn onclick=\"location.href='c:\\inetpub\\wwwroot\\minmax.html';\"  target=\"_blank\" value=\"InMin:{mm.wxInMin} @ {mm.wxInMinHour} InMax:{mm.wxInMax} @ {mm.wxInMaxHour}\" />");
                 sw.WriteLine($"<input type=button class=button_infoOut onclick=\"location.href='minmaxLastmonth.html';\"  target=_blank value=\"OutMin:{mm.wxOutMin} @ {mm.wxOutMinHour} OutMax:{mm.wxOutMax} @ {mm.wxOutMaxHour}\" />");

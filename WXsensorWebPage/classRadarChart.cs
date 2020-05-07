@@ -47,9 +47,6 @@ namespace WXsensorWebPage
             {
                 SqlConnection conn;
                 SqlDataReader rdr = null;
-                //double rdngTemp;
-                //double tempToUse = 0;
-                DateTime rdngTime;
                 DateTime rightNow = DateTime.Now;
                 int cnt = 0;
                 conn = new SqlConnection(connectionString);  //connectionString is a global ATM
@@ -110,9 +107,6 @@ SELECT isnull((select max(WINDSPEED)  as WINDSPEED from WXBOMGHILL  where  WINDD
             {
                 SqlConnection conn;
                 SqlDataReader rdr = null;
-                //double rdngTemp;
-                //double tempToUse = 0;
-                DateTime rdngTime;
                 DateTime rightNow = DateTime.Now;
                 int cnt = 0;
                 conn = new SqlConnection(connectionString);  //connectionString is a global ATM
@@ -169,7 +163,6 @@ SELECT isnull((select max(WINDSPEED)  as WINDSPEED from WXBOMGHILL  where  WINDD
         {
             SqlConnection conn;
             SqlDataReader rdr = null;
-            DateTime rdngTime;
             DateTime rightNow = DateTime.Now;
             int cnt = 0;
             string gustDir="";
@@ -247,7 +240,7 @@ SELECT isnull((select max(WINDSPEED)  as WINDSPEED from WXBOMGHILL  where  WINDD
                 sw.WriteLine(@"<script src=""https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js""></script>");
 
                 sw.WriteLine("</head><body>");
-                sw.WriteLine(@"<center><h2>Scarp Weather - Wind Chart Avg Over 10 minutes data</h2></center>");
+                sw.WriteLine(@"<center><h2>Scarp Weather - Wind Chart Avg over 10 minutes , WindGust Avg over 3 minutes</h2></center>");
                 //sw.WriteLine(@"<center><h3>Avg Over 10 Minutes Data</h3></center>");
 
                 sw.WriteLine(@"<canvas id=""radar-chart"" width=""400"" height=""200""></canvas> ");

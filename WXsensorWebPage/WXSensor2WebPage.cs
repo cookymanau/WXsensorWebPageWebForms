@@ -1,4 +1,4 @@
-﻿//#define MYTEST
+﻿#define MYTEST
 //the MYTEST sets the ticker to 5000mS line 155
 
 #define VERBOSELOGGING
@@ -18,6 +18,7 @@ using System.Data.SqlClient;
 using System.IO;
 using System.Net;
 using System.Timers;
+using System.Diagnostics;
 
 //using WXSensorWebPage.classIndexHtml;
 
@@ -55,8 +56,8 @@ namespace WXsensorWebPage
         public static double[] BestMax = new double[24] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         double[] BestMin = new double[24] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
-        public static double[] tInMin = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0 ,0,0,0,0,0,0,0};
-        public static double[] tInMax = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0};
+        public static double[] tInMin = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+        public static double[] tInMax = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         public static double[] tOutMin = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         public static double[] tOutMax = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
         public static double[] tPoolMin = new double[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
@@ -107,7 +108,7 @@ namespace WXsensorWebPage
             public double BestMax;  //this comes from another table now
             public double BestMin; //this comes from another table  - WXKALAMUNDAFC (forecast)
             public string BestRainfall;
-            public double BcurrentTemp; 
+            public double BcurrentTemp;
             public double BcurrentHumid;
             public double BcurrentPress;
             public double BWindSpeed;
@@ -175,7 +176,7 @@ namespace WXsensorWebPage
 
 
 
-        
+
 
         static double barMax = 0.0;
         string connectionString = @"Data Source=192.168.1.15\DAWES_SQL2008; Database = WeatherStation; User Id = WeatherStation; Password = Esp32a.b.;";
@@ -196,19 +197,18 @@ namespace WXsensorWebPage
             hc.TlowTemp = double.Parse(txtLowTempCondition.Text);
             hc.WhighWind = double.Parse(txtHighWindCondition.Text);
 
-            double tempAvgThisHour = getTempTrendHourly("WXOUT", 1);
-            double tempAvgLastHour = getTempTrendHourly("WXOUT", 2);
+
+            // i commented out the next two lines - dont know why they have to be here and they severly slow down startup
+            //  double tempAvgThisHour = getTempTrendHourly("WXOUT", 1);
+            //  double tempAvgLastHour = getTempTrendHourly("WXOUT", 2);
 
             //read the estimated mins and maxs from BOM into arrays for plotting
             // the name of the TABLE, the name of the array declared above and the naem of the field in the table
             //readBOMMinMaxDataFromDatabase("WXBOMGHILL", BestMax,"ESTBOMMAX");
             //     readBOMMinMaxDataFromDatabase("WXBOMGHILL", BestMin, "ESTBOMMIN");
 
-
+            Debug.WriteLine("At the Start");
             StartProgram();
-
-           
-
         } //end of constructor
 
         private void btnExit_Click(object sender, EventArgs e)
@@ -227,13 +227,16 @@ namespace WXsensorWebPage
         {
             aTimer.Tick += OnTimedEvent;
 #if MYTEST
-            aTimer.Interval = 10000;// for testing only
+            aTimer.Interval = 5000;// for testing only
             chkTweet.Checked = false;
             txtWebUpdateCycle.Text = "30";
 #else
+            Debug.WriteLine("Line 237");
             aTimer.Interval = 60000; //miliseconds - fixed at once every minute for the basic tick
+            Debug.WriteLine("Line 239 after the aTimer");
             chkTweet.Checked = true;
             txtWebUpdateCycle.Text = "120";
+            Debug.WriteLine("At Line 241");
 #endif
             aTimer.Enabled = true;
         } //end of function
@@ -245,6 +248,8 @@ namespace WXsensorWebPage
         /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
         void OnTimedEvent(Object sender, EventArgs e)  //everything happens here
         {
+            Debug.Write("At Line 254 start OnTimedEvent ");
+            Debug.WriteLine(DateTime.Now);
             DateTime tickerTime = DateTime.Now;
             recCnt += 1;  //the first time through recCnt=1 (0 based)
             lblRecCnt.Text = recCnt.ToString();  //display on the service page what record we are at
@@ -256,13 +261,13 @@ namespace WXsensorWebPage
                 readBOMCount += 1;
             }
 
-            if (tickerTime.Hour == 2 )  // set it back to 0 for thje next day
+            if (tickerTime.Hour == 2)  // set it back to 0 for thje next day
             {//do this at the beginning of the cycle and every time the Hour  is 1
-                
+
                 readBOMCount = 0;
-                #if VERBOSELOGGING
-  //                  writeToLog("tickerTime.Hour ==2 and putting readBOMCount to 0");
-                #endif
+#if VERBOSELOGGING
+                //                  writeToLog("tickerTime.Hour ==2 and putting readBOMCount to 0");
+#endif
             }
 
             if (recCnt == 1) //first thing to do is read these, then the data and fill the arrays
@@ -273,7 +278,6 @@ namespace WXsensorWebPage
 #endif
             }
 
-
             if (recCnt % 1 == 0)  //every tick, ie once every tick - every 60 seconds
             {
                 //fill the BOM br.BestMax and br.BestMin so we can use them everywhere
@@ -282,29 +286,29 @@ namespace WXsensorWebPage
                 //fill the today arrays pass the table, arrays to fill and any adjustment
                 // the TinAdjust, ToutAdjust ARE NOT collected from here, these just fill the arrays
                 readSensorDataFromDatabase("WXIN", tIn, tInYesterday, sc.TinAdjust);
-                System.Threading.Thread.Sleep(500);
+                System.Threading.Thread.Sleep(50);
                 readSensorDataFromDatabase("WXOUT", tOut, tOutYesterday, sc.ToutAdjust);
-                System.Threading.Thread.Sleep(500);
+                System.Threading.Thread.Sleep(50);
                 readSensorDataFromDatabase("WXROVER", tRover, tRoverYesterday, sc.TroverAdjust);
-                System.Threading.Thread.Sleep(500);
+                System.Threading.Thread.Sleep(50);
                 readSensorDataFromDatabase("WXPOOL", tPool, tPoolYesterday, sc.TpoolAdjust);
-                System.Threading.Thread.Sleep(500);
+                System.Threading.Thread.Sleep(50);
                 readSensorDataFromDatabase("WXBOMGHILL", tBOM, tBOMYesterday, sc.TbomAdjust);
-                System.Threading.Thread.Sleep(500);
+                System.Threading.Thread.Sleep(50);
 
                 //get the current sensor reading from the database
                 CurrentReadingFromDatabase("WXIN");
-                System.Threading.Thread.Sleep(100);
+                System.Threading.Thread.Sleep(50);
                 CurrentReadingFromDatabase("WXOUT");
-                System.Threading.Thread.Sleep(100);
+                System.Threading.Thread.Sleep(50);
                 CurrentReadingFromDatabase("WXROVER");
-                System.Threading.Thread.Sleep(100);
+                System.Threading.Thread.Sleep(50);
                 CurrentReadingFromDatabase("WXPOOL");
-                System.Threading.Thread.Sleep(100);
+                System.Threading.Thread.Sleep(50);
                 CurrentReadingFromDatabase("WXBOMGHILL");
-                System.Threading.Thread.Sleep(100);
+                System.Threading.Thread.Sleep(50);
                 BOMReadingFromDatabase("WXBOMGHILL");
-                System.Threading.Thread.Sleep(100);
+                System.Threading.Thread.Sleep(50);
                 BOMReadingMinMaxFromDatabase("WXKALAMUNDAFC");
 
 
@@ -315,15 +319,17 @@ namespace WXsensorWebPage
 
                 // this is the averaging / trending data
                 //double tempAvgThisHour = getTempTrendHourly("WXOUT", 1);
+#if MYTEST
+                Debug.WriteLine("We are missing out the Trend Hourly sql queries so the OutTempTrend button will be 0 ");
+                Debug.Assert(hc.WhighWind > 0, "Wind assertion");
+#else
                 td.wxOut1 = getTempTrendHourly("WXOUT", 1);
                 td.wxOut2 = getTempTrendHourly("WXOUT", 2);
-                td.wxOut3 = getTempTrendHourly("WXOUT", 3);
 
                 td.trend1 = td.wxOut1 - td.wxOut2;
-                td.trend2 = td.wxOut2 - td.wxOut3;
                 td.trend1 = Math.Round(td.trend1, 1);
                 td.trend2 = Math.Round(td.trend2, 1);
-
+#endif
                 // these 4 calls to the GetMaxMin... populate the minmax arrays from the database
                 //and display the data on the buttons on index.html
                 GetMaxMinTempFromDatabase("WXOUT", "MAX");
@@ -341,9 +347,9 @@ namespace WXsensorWebPage
                 chtm.createHTMLpage(br, cr, mm, ss, sws, hc, td);
 
                 classIndexHtml cih = new classIndexHtml();
-                cih.createHTMLpage(br, cr, mm, ss, sws, hc, td );
+                cih.createHTMLpage(br, cr, mm, ss, sws, hc, td);
 
-                 //this is the radar plot of wind and wind direction , we should make it so that it only gets todays data here
+                //this is the radar plot of wind and wind direction , we should make it so that it only gets todays data here
                 classRadarChart crc = new classRadarChart();
                 crc.getData();  //so we instantiate the class as an object and call the getdata method t get the data we want and call the html from there
 
@@ -393,14 +399,15 @@ namespace WXsensorWebPage
 
         }//end of the timed function
 
-        //private void btnStart_Click(object sender, EventArgs e) { }
 
+        /// <summary>
+        /// Our main entry point into the program
+        /// </summary>
         private void StartProgram()
         {
             lblStartTime.Text = now.ToString();
             btnStart.Text = "Running";
             SetTimer(); //Start the timer loop and go forever
-
         }
 
         /// <summary>
@@ -419,7 +426,7 @@ namespace WXsensorWebPage
             int intHour;
             int counter = 0;
             conn = new SqlConnection(connectionString);  //connectionString is a global ATM
-     //     SqlCommand getReadings = new SqlCommand($"select TIME, ROUND(AvgValue, 1) as AvgTemp from(select TIME = dateadd(hh, datepart(hh, TIME), cast(CAST(TIME as date) as datetime)), AvgValue = AVG(TEMP)from {table} group by dateadd(hh, datepart(hh, TIME), cast(CAST(TIME as date) as datetime)))a order by TIME DESC", conn);
+                                                         //     SqlCommand getReadings = new SqlCommand($"select TIME, ROUND(AvgValue, 1) as AvgTemp from(select TIME = dateadd(hh, datepart(hh, TIME), cast(CAST(TIME as date) as datetime)), AvgValue = AVG(TEMP)from {table} group by dateadd(hh, datepart(hh, TIME), cast(CAST(TIME as date) as datetime)))a order by TIME DESC", conn);
 
             //this bit courtesy of stackoverflow - how to do these sort of long queries in C# formatting
             // get the reading from the database as closes as possible to the top of hour - a few seconds either side
@@ -434,7 +441,7 @@ namespace WXsensorWebPage
             sb.AppendLine(@" order by TIME DESC ");
 
             string topOfTheHour = sb.ToString();  //make a big single string of the query...and execute it
-            SqlCommand getReadings = new SqlCommand(topOfTheHour,conn);
+            SqlCommand getReadings = new SqlCommand(topOfTheHour, conn);
 
             try
             {
@@ -448,17 +455,19 @@ namespace WXsensorWebPage
                 {
                     // get the results of each column
                     rdngTime = (DateTime)rdr["TIME"]; //this is the ime of thereading from the database
-                    
+
                     //rdngTemp = (double)rdr["AvgTemp"];
                     rdngTemp = (double)rdr["TEMP"];
 
 
                     if (rightNow.Day == rdngTime.Day)
-//                    if (DateTime.Now.Day == rdngTime.Day) //this ensures we get TODAYS readings  DateTime.Now.Day is todays date
-                    {
+                    //                    if (DateTime.Now.Day == rdngTime.Day) //this ensures we get TODAYS readings  DateTime.Now.Day is todays date
+                    {   //why is this here 3 times????
+                       // intHour = (int)(rdngTime.Hour); //this is the hour of the reading returned by the SQL above
+                       // intHour = (int)(rdngTime.Hour); //this is the hour of the reading returned by the SQL above
                         intHour = (int)(rdngTime.Hour); //this is the hour of the reading returned by the SQL above
 
-                        if (intHour <= DateTime.Now.Hour ) // for some reason the end of the arrays were filling up. This stops that
+                        if (intHour <= DateTime.Now.Hour) // for some reason the end of the arrays were filling up. This stops that
                         {
                             tArray[intHour] = Math.Round(rdngTemp + tAdjust, 1);    //get todays readings of temperature and put in the array and add the correction
                             counter += 1;
@@ -467,7 +476,7 @@ namespace WXsensorWebPage
                     else if (rightNow.Day - 1 == rdngTime.Day)  //fills yesterdays arrays
                     {
                         intHour = (int)(rdngTime.Hour);
-                        tArrayYesterday[intHour] = Math.Round(rdngTemp + tAdjust ,1) ; //yesterdays reading of temp into the array
+                        tArrayYesterday[intHour] = Math.Round(rdngTemp + tAdjust, 1); //yesterdays reading of temp into the array
                     }
                     // this is the attempt to fill the tHr array for the vertical bar to the highest numerical value
                     if (rdngTemp > barMax && rightNow.Day == rdngTime.Day)
@@ -478,7 +487,8 @@ namespace WXsensorWebPage
                     tHr[rightNow.Hour] = (int)barMax;
                 }
                 conn.Close();
-            } catch(Exception ex)
+            }
+            catch (Exception ex)
             {
                 writeToLog($"ERROR - readSensorDataFromDatabase: {ex}");
             }
@@ -491,29 +501,30 @@ namespace WXsensorWebPage
         /// <param name="table">BOM readings table usuially WXBOMGHILL</param>
         /// <param name="tArray">The array to write the estMax and Min data to.</param>
         /// <param name="field">Not used</param>
-        private void readBOMMinMaxDataFromDatabase(string table, double[] tArray,string field)
+        private void readBOMMinMaxDataFromDatabase(string table, double[] tArray, string field)
         {
+            if (table == null)
+                throw new ArgumentNullException("Missing table to read");
+
             SqlConnection conn;
             SqlDataReader rdr = null;
-            double rdngTemp;
-            double tempToUse = 0;
             DateTime rdngTime;
             DateTime rightNow = DateTime.Now;
-            int intHour;
             conn = new SqlConnection(connectionString);  //connectionString is a global ATM
             SqlCommand getReadings = new SqlCommand($"select top 1 TIME, TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from {table}  where  datepart(hh, TIME) = 0 order by TIME DESC", conn);
             //                                        select top 1 TIME, TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from WXBOMGHILL where  datepart(hh, TIME) = '9'   order by TIME DESC
 
-                Array.Clear(tArray, 0, 24);
-                conn.Open();
-                rdr = getReadings.ExecuteReader();
-                while (rdr.Read()) { 
-                    // get the results of each column
-                    rdngTime = (DateTime)rdr["TIME"];
-                    br.BestMax = (double)rdr["ESTBOMMAX"];
-                    br.BestMin = (double)rdr["ESTBOMMIN"];
-                }
-                conn.Close();
+            Array.Clear(tArray, 0, 24);
+            conn.Open();
+            rdr = getReadings.ExecuteReader();
+            while (rdr.Read())
+            {
+                // get the results of each column
+                rdngTime = (DateTime)rdr["TIME"];
+                br.BestMax = (double)rdr["ESTBOMMAX"];
+                br.BestMin = (double)rdr["ESTBOMMIN"];
+            }
+            conn.Close();
         }
 
         /// <summary>
@@ -569,7 +580,8 @@ namespace WXsensorWebPage
                     }
                 }
                 conn.Close();
-            } catch (Exception ex)
+            }
+            catch (Exception ex)
             {
                 writeToLog($"ERROR-CurrentReadingFromDatabase: {ex}");
             }
@@ -578,12 +590,12 @@ namespace WXsensorWebPage
 
 
         // -------------vvvvvvvvvvvvvv  Max and Min from database vvvvvvvvvvvvvv------------
-        private void GetMaxMinTempFromDatabase(string table,string minmax )
+        private void GetMaxMinTempFromDatabase(string table, string minmax)
         {
             SqlConnection conn;
             SqlDataReader rdr = null;
             DateTime rightNow = DateTime.Now;
-           System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
             try
             { // get the min and max temps and their respective times
                 sb.AppendLine($"select TOP 1 {minmax}(TEMP) as [Temp] ");
@@ -593,10 +605,12 @@ namespace WXsensorWebPage
 
                 if (minmax == "MAX")
                 {
-                    sb.AppendLine($" group by TEMP,TIME order by TEMP DESC "); } //getting a min and max requires slightly different sorting
+                    sb.AppendLine($" group by TEMP,TIME order by TEMP DESC ");
+                } //getting a min and max requires slightly different sorting
                 else if (minmax == "MIN")
                 {
-                    sb.AppendLine($" group by TEMP,TIME order by TEMP ASC "); }
+                    sb.AppendLine($" group by TEMP,TIME order by TEMP ASC ");
+                }
 
                 string getMaxTempTime = sb.ToString();  //make a big single string of the query...and execute it
 
@@ -705,7 +719,7 @@ namespace WXsensorWebPage
             }
         }
 
-//---------------------^^^^^^^^^^^^^^^^^ end of function ^^^^^^^^^^^^^^-----------
+        //---------------------^^^^^^^^^^^^^^^^^ end of function ^^^^^^^^^^^^^^-----------
 
 
 
@@ -743,30 +757,21 @@ namespace WXsensorWebPage
         }
         private void BOMReadingMinMaxFromDatabase(string table)  //this is new 20200429 to replace other tries at getting this data
         {
-            SqlConnection conn;
-            SqlDataReader rdr = null;
             DateTime rightNow = DateTime.Now;
-   //         try
-   //         {
-                conn = new SqlConnection(connectionString);  //connectionString is a global ATM
-                SqlCommand getReadings = new SqlCommand($"select  top 1 * from {table} where [ISOYEAR] = convert(char(10), getdate(), 112) order by [TIME] DESC", conn);
-                //select top 1 TIME,TEMP,HUMID,PRESS,WINDSPEED,WINDDIR,RAINFALL,ESTBOMMIN,ESTBOMMAX from WXBOMGHILL where  datepart(hh, TIME) = '9'   order by TIME DESC
-                conn.Open();
-                rdr = getReadings.ExecuteReader();
-                while (rdr.Read())
-                {
-                    // get the results of each column
-                    br.BestMax = double.Parse(rdr["MAXTEMP"].ToString());  //dont want to do this all the time -once per day by readBOMMInMaxFromdatabase() higher up
-                    br.BestMin = double.Parse(rdr["MINTEMP"].ToString());
-                    br.BestRainfall = rdr["FORECAST"].ToString();
+            SqlConnection conn = new SqlConnection(connectionString);
+            SqlCommand getReadings = new SqlCommand($"select  top 1 * from {table} where [ISOYEAR] = convert(char(10), getdate(), 112) order by [TIME] DESC", conn);
+            conn.Open();
+            SqlDataReader rdr = getReadings.ExecuteReader();
+            while (rdr.Read())
+            {
+                // get the results of each column
+                br.BestMax = double.Parse(rdr["MAXTEMP"].ToString());  //dont want to do this all the time -once per day by readBOMMInMaxFromdatabase() higher up
+                br.BestMin = double.Parse(rdr["MINTEMP"].ToString());
+                br.BestMin = double.Parse(rdr["MINTEMP"].ToString());
+                br.BestRainfall = rdr["FORECAST"].ToString();
 
-                }
-                conn.Close();
- //          }
- //          catch (Exception ex)
- //           {
- //               writeToLog($"ERROR-BOMReadingFromDatabase Min and Max Data {ex}");
- //           }
+            }
+            conn.Close();
         }
 
 
@@ -824,7 +829,8 @@ namespace WXsensorWebPage
 
 
 
-        private double getTempTrendHourly(string table,double rownum) {
+        private double getTempTrendHourly(string table, double rownum)
+        {
 
             //string getTEMPHour = $"select TOP 1 * from (select row_number() over (order by TIME DESC) as ROWNUMBER,TIME, ROUND(AvgValue,1) as AvgTemp from (select TIME=dateadd(hh,datepart(hh,TIME), cast(CAST(TIME as date) as datetime)), AvgValue=AVG(TEMP)from  {table} group by dateadd(hh,datepart(hh,TIME), cast(CAST(TIME as date) as datetime)))a)b where ROWNUMBER = {rownum}";
 
@@ -844,12 +850,25 @@ namespace WXsensorWebPage
 
                 string getTEMPHour = sb.ToString();
 
+                //this is a replacement query for the above.  Returns the data we want in one call as well
+                string sqlQuery = $@"
+ select * from ( 
+  select *,ROWNUMBER = row_number() over(order by TIME desc) from {table} where TIME in (
+  select top 2 * from  (
+  select min(TIME) as dt 
+  from {table}
+  where datediff(day, TIME, getdate()) <= 60 
+  group by cast(TIME as date),datepart(hh, TIME) 
+  )a  order by dt DESC))b  where ROWNUMBER = {rownum}
+
+";
 
                 SqlConnection conn;
                 SqlDataReader rdr = null;
                 double data;
                 conn = new SqlConnection(connectionString);  //connectionString is a global ATM
-                SqlCommand getHour = new SqlCommand(getTEMPHour, conn);
+                SqlCommand getHour = new SqlCommand(sqlQuery, conn);
+                //SqlCommand getHour = new SqlCommand(getTEMPHour, conn);
                 conn.Open();
                 rdr = getHour.ExecuteReader();
 
@@ -879,7 +898,8 @@ namespace WXsensorWebPage
             SqlDataReader rdr = null;
             DateTime rightNow = DateTime.Now;
 
-            try {
+            try
+            {
                 conn = new SqlConnection(connectionString);  //connectionString is a global ATM
                 SqlCommand getReadings = new SqlCommand($"select  SENSOR,TEMP_CORRECTION,HUMID_CORRECTION from {table} where SENSOR ='{sens}' ", conn);
                 conn.Open();
@@ -887,16 +907,20 @@ namespace WXsensorWebPage
                 while (rdr.Read())
                 {
                     // get the results of each column
-                    if (sens == "WXIN"){
+                    if (sens == "WXIN")
+                    {
                         sc.TinAdjust = (float)rdr["TEMP_CORRECTION"];
                     }
-                    else if (sens == "WXOUT") {
+                    else if (sens == "WXOUT")
+                    {
                         sc.ToutAdjust = (float)rdr["TEMP_CORRECTION"];
                     }
-                    else if (sens == "WXROVER"){
+                    else if (sens == "WXROVER")
+                    {
                         sc.TroverAdjust = (float)rdr["TEMP_CORRECTION"];
                     }
-                    else if (sens == "WXBOM"){
+                    else if (sens == "WXBOM")
+                    {
                         sc.TbomAdjust = (float)rdr["TEMP_CORRECTION"];
                     }
                     else if (sens == "WXPOOL")
@@ -907,8 +931,10 @@ namespace WXsensorWebPage
                 }
                 conn.Close();
             }
-            catch (Exception ex){
-                writeToLog($"ERROR - reading corrections from the database {ex}");}
+            catch (Exception ex)
+            {
+                writeToLog($"ERROR - reading corrections from the database {ex}");
+            }
 
         }// end of CorrectionsFromDatabase
 
@@ -922,7 +948,7 @@ namespace WXsensorWebPage
 
         }
 
- 
+
 
 
 
@@ -980,18 +1006,18 @@ namespace WXsensorWebPage
         /// </summary>
         /// <param name="mesg">The mesg.</param>
         void writeToLog(string mesg)
-            {
-                // var pathWithEnv = @"%USERPROFILE%\AppData\Local\MyProg\settings.file";
-                var pathWithEnv = @"%USERPROFILE%\Documents\WXWebPage.log";
-                var filePath = Environment.ExpandEnvironmentVariables(pathWithEnv);
+        {
+            // var pathWithEnv = @"%USERPROFILE%\AppData\Local\MyProg\settings.file";
+            var pathWithEnv = @"%USERPROFILE%\Documents\WXWebPage.log";
+            var filePath = Environment.ExpandEnvironmentVariables(pathWithEnv);
 
-                using (StreamWriter sw = new StreamWriter(filePath, append: true))  //using controls low-level resource useage
-                {
+            using (StreamWriter sw = new StreamWriter(filePath, append: true))  //using controls low-level resource useage
+            {
                 string nowDate = DateTime.Now.ToString("d");
                 string now = DateTime.Now.ToString("h:mm:ss tt");
-                    sw.WriteLine($"Log Time: {nowDate} : {now} : {mesg}"); //thats String Interpolation -the $ and curly brackets make it easy!
-                    sw.Close();
-                }
+                sw.WriteLine($"Log Time: {nowDate} : {now} : {mesg}"); //thats String Interpolation -the $ and curly brackets make it easy!
+                sw.Close();
+            }
         }
 
 
@@ -1030,7 +1056,7 @@ namespace WXsensorWebPage
 
                     //attempting give around a couple of minutes leeway before reporting an red led
                     //and laying it out this way is better than the convoluted long logic
-                    if(rdngTime.Hour == rightNow.Hour && (rdngTime.Minute > rightNow.Minute - 2 || rdngTime.Minute < rightNow.Minute + 2))
+                    if (rdngTime.Hour == rightNow.Hour && (rdngTime.Minute > rightNow.Minute - 2 || rdngTime.Minute < rightNow.Minute + 2))
                     {
                         switch (wxtable)
                         {
@@ -1160,7 +1186,7 @@ namespace WXsensorWebPage
 
             classMinMaxHtml cmm = new classMinMaxHtml(1);
             cmm.MinMaxHTML();  //create the webpage
-                               
+
 
             classMinMaxHtml cmmLM = new classMinMaxHtml(2);
             cmmLM.MinMaxHTML();  //create the webpage
@@ -1170,8 +1196,8 @@ namespace WXsensorWebPage
 
         }// end of the function
 
-      
-        
+
+
 
 
     } //end of program
